@@ -139,9 +139,7 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
         try:
             # Bersihkan JSON dari baris baru yang tidak sah dalam string
             cleaned_json = json_str.replace('\n', '\\n').replace('\r', '\\r')
-            # Tetapi jangan tukar baris baru yang memisahkan elemen JSON (struktur)
-            # Ini adalah solusi ringkas, jika masih ralat kita guna pendekatan regex
-            decision = json.loads(json_str) 
+            decision = json.loads(cleaned_json) 
         except json.JSONDecodeError:
             # Cuba cara agresif jika cara biasa gagal
             try:
