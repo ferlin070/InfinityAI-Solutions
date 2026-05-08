@@ -38,20 +38,19 @@ client = OpenAI(
 # --- SYSTEM PROMPTS (THE BRAIN) ---
 AGENT_PROMPTS = {
     "CLAUDIA": (
-        "Anda adalah Claudia, Chief of Staff (Manager Utama). Tugas anda adalah menganalisis arahan Bos.\n"
-        "1. Jika arahan memerlukan kepakaran ejen digital, bahagikan tugas kepada mereka.\n"
-        "2. Jika arahan melibatkan AKTIVITI FIZIKAL (seperti memasak, mencuci, membaiki barang fizikal), anda MESTI MENOLAK tugasan tersebut.\n"
-        "Senarai Ejen & Scope:\n"
-        "1. ZARA (Finance): Invois, bajet, pengiraan duit.\n"
-        "2. MAYA (Sales): Quotation, database klien, inquiry jualan.\n"
-        "3. AMELIA (Training): Nota kelas, modul latihan, bahan edaran peserta, slides pembelajaran.\n"
-        "4. DANISH (Content): Skrip video YouTube/TikTok, copywriting kreatif, e-book pemasaran.\n"
-        "5. AIMAN (Marketing): Strategi iklan, FB/IG ads, marketing plan.\n"
-        "6. ADILA (Ops): Log harian, laporan rutin, info operasi.\n"
-        "7. HAKIM (System): Coding, IT, seni bina sistem, teknikal komputer.\n\n"
-        "Balas HANYA JSON:\n"
+        "Anda adalah Claudia, Chief of Staff. Tugas anda adalah menganalisis arahan Bos.\n"
+        "SANGAT PENTING: BALAS HANYA DALAM FORMAT JSON. JANGAN BERI MUKADIMAH ATAU PENJELASAN TEKS.\n"
+        "Jika anda faham, balas dalam format JSON berikut:\n"
         "A. Jika terima: {\"status\": \"accepted\", \"assignments\": [{\"agent\": \"NAMA\", \"task\": \"arahan\"}]}\n"
-        "B. Jika tolak: {\"status\": \"rejected\", \"reason\": \"Mesej penolakan profesional dalam Bahasa Melayu\"}"
+        "B. Jika tolak: {\"status\": \"rejected\", \"reason\": \"Mesej penolakan\"}\n\n"
+        "Senarai Ejen & Scope:\n"
+        "1. ZARA (Finance): Invois, bajet.\n"
+        "2. MAYA (Sales): Quotation, database klien.\n"
+        "3. AMELIA (Training): Nota kelas, modul latihan, bahan edaran.\n"
+        "4. DANISH (Content): Skrip video, copywriting.\n"
+        "5. AIMAN (Marketing): Strategi iklan.\n"
+        "6. ADILA (Ops): Log harian.\n"
+        "7. HAKIM (System): Coding, IT."
     ),
     "ZARA": "Anda adalah Zara, Pakar Kewangan. Sediakan pengiraan bajet atau dokumen kewangan yang tepat.",
     "MAYA": "Anda adalah Maya, Pakar CRM. Uruskan database klien dan sediakan sebut harga profesional.",
@@ -94,13 +93,13 @@ def add_json_log(agent, model, status, duration):
     logs.insert(0, log_entry)
     with open(LOG_FILE, "w", encoding="utf-8") as f: json.dump(logs[:50], f, indent=4)
 
-def call_nvidia(sys_p, usr_p, model):
+def call_nvidia(sys_p, usr_p, model, temp=0.7):
     start = time.time()
     try:
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": sys_p}, {"role": "user", "content": usr_p}],
-            temperature=0.7, max_tokens=4096
+            temperature=temp, max_tokens=4096
         )
         return resp.choices[0].message.content, time.time() - start
     except Exception as e:
@@ -132,7 +131,7 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
     total_start = time.time()
     try:
         # Step 1: Claudia (Manager) decides
-        claudia_out, _ = call_nvidia(AGENT_PROMPTS["CLAUDIA"], data.prompt, data.model_name)
+        claudia_out, _ = call_nvidia(AGENT_PROMPTS["CLAUDIA"], data.prompt, data.model_name, temp=0.1)
         
         json_str = extract_json(claudia_out.replace("```json", "").replace("```", "").strip())
         if not json_str:
