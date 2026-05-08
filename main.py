@@ -49,7 +49,7 @@ AGENT_PROMPTS = {
 
 class UserInput(BaseModel):
     prompt: str
-    model_name: str = "meta/llama3-70b-instruct"
+    model_name: str = "meta/llama-3.3-70b-instruct"
 
 # --- FUNCTIONS ---
 
@@ -116,7 +116,11 @@ def call_nvidia_nim(system_prompt: str, user_prompt: str, model_name: str):
         duration = time.time() - start_time
         return completion.choices[0].message.content, duration
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Pulangkan ralat terperinci supaya dipaparkan di frontend
+        error_msg = str(e)
+        if "410" in error_msg:
+            error_msg = f"Model '{model_name}' sudah tamat tempoh (EOL). Sila pilih model lain."
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
@@ -137,9 +141,9 @@ async def execute_orchestrator(input_data: UserInput, background_tasks: Backgrou
     total_start_time = time.time()
     
     # Step 1: Claudia analyzes the request
-    claudia_response, _ = call_nvidia_nim(AGENT_PROMPTS["CLAUDIA"], input_data.prompt, input_data.model_name)
-    
     try:
+        claudia_response, _ = call_nvidia_nim(AGENT_PROMPTS["CLAUDIA"], input_data.prompt, input_data.model_name)
+        
         # Clean response if there is markdown
         clean_json = claudia_response.replace("```json", "").replace("```", "").strip()
         decision = json.loads(clean_json)
@@ -154,7 +158,7 @@ async def execute_orchestrator(input_data: UserInput, background_tasks: Backgrou
         # Step 2: Execute the specialized agent
         final_result, agent_duration = call_nvidia_nim(AGENT_PROMPTS[target_agent], task_description, input_data.model_name)
         
-        # Calculate overall duration for the specific agent task
+        # Calculate overall duration
         total_duration = time.time() - total_start_time
         
         # Step 3: Google Drive Upload via GAS & Logging
@@ -178,12 +182,15 @@ async def execute_orchestrator(input_data: UserInput, background_tasks: Backgrou
             "model": input_data.model_name
         }
         
+    except HTTPException as he:
+        # Tangani ralat dari call_nvidia_nim
+        add_json_log("System", input_data.model_name, f"Error: {he.detail}", 0)
+        raise he
     except Exception as e:
         add_json_log("System", input_data.model_name, f"Error: {str(e)}", 0)
         return {
             "status": "error",
-            "message": f"Parsing Error: {str(e)}",
-            "raw": claudia_response
+            "message": f"System Error: {str(e)}"
         }
 
 if __name__ == "__main__":
