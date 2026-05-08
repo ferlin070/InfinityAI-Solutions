@@ -235,7 +235,7 @@
                 const d = await r.json();
 
                 if (r.ok && d.status === 'success') {
-                    // Display multi-agent results
+                    // ... (multi-agent results logic)
                     let combinedResult = '';
                     d.results.forEach(res => {
                         addLog(`Ejen ${res.agent} telah menyiapkan tugasan.`, 'success');
@@ -247,6 +247,11 @@
                     document.getElementById('finalOutput').innerText = combinedResult;
                     resultBox.classList.remove('hidden');
                     fetchHistory();
+                } else if (d.status === 'rejected') {
+                    addLog(`Claudia menolak tugasan: ${d.message}`, 'error');
+                    document.getElementById('agentBadge').innerText = `CLAUDIA: DITOLAK`;
+                    document.getElementById('finalOutput').innerText = d.message;
+                    resultBox.classList.remove('hidden');
                 } else {
                     addLog(`Ralat: ${d.detail || d.message}`, 'error');
                 }

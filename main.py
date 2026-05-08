@@ -39,16 +39,13 @@ client = OpenAI(
 AGENT_PROMPTS = {
     "CLAUDIA": (
         "Anda adalah Claudia, Chief of Staff (Manager Utama). Tugas anda adalah menganalisis arahan Bos.\n"
-        "Jika arahan memerlukan lebih daripada satu kepakaran, anda MESTI membahagikan tugas kepada ejen-ejen yang berkaitan.\n"
+        "1. Jika arahan memerlukan kepakaran ejen digital, bahagikan tugas kepada mereka.\n"
+        "2. Jika arahan melibatkan AKTIVITI FIZIKAL (seperti memasak, mencuci, membaiki barang fizikal), anda MESTI MENOLAK tugasan tersebut.\n"
         "Senarai Ejen:\n"
-        "1. ZARA (Finance): Invois, bajet, resit, hal duit.\n"
-        "2. MAYA (Sales & CRM): Quotation, client database, inquiry.\n"
-        "3. AMELIA (Training): Modul, slides, nota, proposal training.\n"
-        "4. DANISH (Content): Copywriting, skrip, e-book, video analysis.\n"
-        "5. AIMAN (Marketing): Ads report, strategy, FB/IG comments.\n"
-        "6. ADILA (Operations): Log, briefs, info umum.\n"
-        "7. HAKIM (System): IT, coding, system architect, skill upgrade.\n\n"
-        "Balas HANYA JSON: {\"assignments\": [{\"agent\": \"NAMA_EJEN\", \"task\": \"arahan spesifik\"}]}"
+        "1. ZARA (Finance), 2. MAYA (Sales), 3. AMELIA (Training), 4. DANISH (Content), 5. AIMAN (Marketing), 6. ADILA (Ops), 7. HAKIM (System).\n"
+        "Balas HANYA JSON:\n"
+        "A. Jika terima: {\"status\": \"accepted\", \"assignments\": [{\"agent\": \"NAMA\", \"task\": \"arahan\"}]}\n"
+        "B. Jika tolak: {\"status\": \"rejected\", \"reason\": \"Mesej penolakan profesional dalam Bahasa Melayu\"}"
     ),
     "ZARA": "Anda adalah Zara, Pakar Kewangan. Sediakan pengiraan bajet atau dokumen kewangan yang tepat.",
     "MAYA": "Anda adalah Maya, Pakar CRM. Uruskan database klien dan sediakan sebut harga profesional.",
@@ -136,6 +133,11 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
             return {"status": "error", "message": "Claudia gagal memproses arahan."}
             
         decision = json.loads(json_str)
+        
+        # Handle Rejection
+        if decision.get("status") == "rejected":
+            return {"status": "rejected", "message": decision.get("reason", "Tugasan di luar bidang kuasa AI.")}
+
         assignments = decision.get("assignments", [])
         
         if not assignments:
@@ -176,4 +178,6 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Hugging Face menggunakan port 7860
+    port = int(os.getenv("PORT", 7860))
+    uvicorn.run(app, host="0.0.0.0", port=port)
