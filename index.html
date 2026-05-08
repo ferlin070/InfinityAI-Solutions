@@ -70,9 +70,10 @@
                             <p class="text-xs text-slate-500">Pilih model dan beri arahan kepada pasukan.</p>
                         </div>
                         <select id="modelSelect" class="ml-auto bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-xs outline-none">
-                            <option value="meta/llama-3.3-70b-instruct">Llama 3.3 (Fast)</option>
-                            <option value="nvidia/llama-3.1-nemotron-70b-instruct">Nemotron (Precise)</option>
-                            <option value="deepseek-ai/deepseek-v4-pro">DeepSeek (Coder)</option>
+                            <option value="meta/llama-3.1-70b-instruct">Llama 3.1 (Recommended)</option>
+                            <option value="nvidia/llama-3.1-nemotron-70b-instruct">Nemotron 70B</option>
+                            <option value="qwen/qwen2.5-coder-32b-instruct">Qwen 2.5 Coder</option>
+                            <option value="deepseek-ai/deepseek-v4-pro">DeepSeek v4</option>
                         </select>
                     </div>
                     <textarea id="userPrompt" rows="4" class="w-full bg-slate-950/50 border border-slate-800 rounded-2xl p-6 text-slate-200 outline-none focus:border-blue-500 transition-all placeholder-slate-700 mb-4" placeholder="Apa tugasan untuk harini, Bos?"></textarea>
@@ -234,13 +235,16 @@
                 const d = await r.json();
 
                 if (r.ok && d.status === 'success') {
-                    addLog(`Claudia menyerahkan tugas kepada ${d.assigned_to}.`, 'agent');
-                    addLog(`Tugasan: ${d.task}`);
-                    addLog(`Hasil diterima dari ${d.assigned_to}!`, 'success');
+                    // Display multi-agent results
+                    let combinedResult = '';
+                    d.results.forEach(res => {
+                        addLog(`Ejen ${res.agent} telah menyiapkan tugasan.`, 'success');
+                        combinedResult += `--- HASIL KERJA ${res.agent} ---\n${res.result}\n\n`;
+                    });
 
-                    document.getElementById('agentBadge').innerText = `EJEN: ${d.assigned_to}`;
-                    document.getElementById('speedVal')?.innerText || (document.getElementById('speedBadge').innerText = d.speed);
-                    document.getElementById('finalOutput').innerText = d.result;
+                    document.getElementById('agentBadge').innerText = `KOLABORASI: ${d.results.map(r=>r.agent).join(', ')}`;
+                    document.getElementById('speedBadge').innerText = d.total_speed;
+                    document.getElementById('finalOutput').innerText = combinedResult;
                     resultBox.classList.remove('hidden');
                     fetchHistory();
                 } else {

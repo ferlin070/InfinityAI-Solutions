@@ -38,29 +38,30 @@ client = OpenAI(
 # --- SYSTEM PROMPTS (THE BRAIN) ---
 AGENT_PROMPTS = {
     "CLAUDIA": (
-        "Anda adalah Claudia, Chief of Staff (Manager Utama). Tugas anda adalah menganalisis arahan Bos "
-        "dan menyerahkan tugas kepada ejen yang tepat dari senarai berikut:\n"
-        "1. ZARA (Finance): Invois, resit, tax, hal duit.\n"
-        "2. MAYA (Sales & CRM): Inquiry, quotation, client registry, status client.\n"
-        "3. AMELIA (Training): Module, proposal training, checklist kelas, slides, nota.\n"
-        "4. DANISH (Content): Copywriting, e-book, video analysis, prompt.\n"
-        "5. AIMAN (Marketing): Launching plan, ads report, marketing strategy.\n"
-        "6. ADILA (Operations): Morning brief, log harian, weekly review.\n"
-        "7. HAKIM (System): Skill building, blueprint, tool integration, upgrade team.\n\n"
-        "Balas HANYA JSON: {\"agent\": \"NAMA_EJEN\", \"task\": \"arahan terperinci\"}"
+        "Anda adalah Claudia, Chief of Staff (Manager Utama). Tugas anda adalah menganalisis arahan Bos.\n"
+        "Jika arahan memerlukan lebih daripada satu kepakaran, anda MESTI membahagikan tugas kepada ejen-ejen yang berkaitan.\n"
+        "Senarai Ejen:\n"
+        "1. ZARA (Finance): Invois, bajet, resit, hal duit.\n"
+        "2. MAYA (Sales & CRM): Quotation, client database, inquiry.\n"
+        "3. AMELIA (Training): Modul, slides, nota, proposal training.\n"
+        "4. DANISH (Content): Copywriting, skrip, e-book, video analysis.\n"
+        "5. AIMAN (Marketing): Ads report, strategy, FB/IG comments.\n"
+        "6. ADILA (Operations): Log, briefs, info umum.\n"
+        "7. HAKIM (System): IT, coding, system architect, skill upgrade.\n\n"
+        "Balas HANYA JSON: {\"assignments\": [{\"agent\": \"NAMA_EJEN\", \"task\": \"arahan spesifik\"}]}"
     ),
-    "ZARA": "Anda adalah Zara, Pakar Kewangan. Fokus pada ketepatan data kewangan, pengurusan invois, dan laporan tax yang profesional.",
-    "MAYA": "Anda adalah Maya, Pakar Sales & CRM. Fokus pada komunikasi pelanggan yang cemerlang, penyediaan sebut harga (quotation), dan pengurusan database client.",
-    "AMELIA": "Anda adalah Amelia, Pakar Training Delivery. Fokus pada kualiti modul pembelajaran, penyediaan bahan latihan, dan struktur slides yang efektif.",
-    "DANISH": "Anda adalah Danish, Pakar Content & Media. Fokus pada copywriting yang viral, penulisan e-book yang menarik, dan analisis video kreatif.",
-    "AIMAN": "Anda adalah Aiman, Pakar Marketing. Fokus pada strategi pelancaran (launching), analisis data iklan (ads), dan strategi pemasaran yang agresif.",
-    "ADILA": "Anda adalah Adila, Pakar Daily Operations. Fokus pada pengurusan rutin, morning brief yang bersemangat, dan mengekalkan log aktiviti pasukan.",
-    "HAKIM": "Anda adalah Hakim, System Architect. Fokus pada pembangunan kemahiran (skills) baru ejen, pengurusan blueprint sistem, dan integrasi teknologi terkini."
+    "ZARA": "Anda adalah Zara, Pakar Kewangan. Sediakan pengiraan bajet atau dokumen kewangan yang tepat.",
+    "MAYA": "Anda adalah Maya, Pakar CRM. Uruskan database klien dan sediakan sebut harga profesional.",
+    "AMELIA": "Anda adalah Amelia, Pakar Training. Sediakan modul atau nota latihan yang sistematik.",
+    "DANISH": "Anda adalah Danish, Pakar Content. Tulis copywriting atau skrip video yang menarik.",
+    "AIMAN": "Anda adalah Aiman, Pakar Marketing. Sediakan strategi pemasaran atau balasan komen prospek yang efektif.",
+    "ADILA": "Anda adalah Adila, Pakar Operations. Sediakan maklumat umum atau log harian yang kemas.",
+    "HAKIM": "Anda adalah Hakim, System Architect. Bina kod HTML/CSS/JS atau beri nasihat teknikal sistem."
 }
 
 class UserInput(BaseModel):
     prompt: str
-    model_name: str = "meta/llama-3.3-70b-instruct"
+    model_name: str = "meta/llama-3.1-70b-instruct"
 
 # --- CORE FUNCTIONS ---
 
@@ -111,32 +112,63 @@ async def history():
     if not os.path.exists(LOG_FILE): return []
     with open(LOG_FILE, "r", encoding="utf-8") as f: return json.load(f)
 
+def extract_json(text):
+    """Mencari dan mengekstrak objek JSON pertama yang lengkap dari teks."""
+    start = text.find('{')
+    if start == -1: return None
+    count = 0
+    for i in range(start, len(text)):
+        if text[i] == '{': count += 1
+        elif text[i] == '}': count -= 1
+        if count == 0:
+            return text[start:i+1]
+    return None
+
 @app.post("/api/execute")
 async def execute(data: UserInput, background_tasks: BackgroundTasks):
     total_start = time.time()
     try:
-        # Step 1: Claudia (Manager)
+        # Step 1: Claudia (Manager) decides
         claudia_out, _ = call_nvidia(AGENT_PROMPTS["CLAUDIA"], data.prompt, data.model_name)
-        decision = json.loads(claudia_out.replace("```json", "").replace("```", "").strip())
         
-        agent = decision.get("agent", "").upper()
-        task = decision.get("task", "")
+        json_str = extract_json(claudia_out.replace("```json", "").replace("```", "").strip())
+        if not json_str:
+            return {"status": "error", "message": "Claudia gagal memproses arahan."}
+            
+        decision = json.loads(json_str)
+        assignments = decision.get("assignments", [])
         
-        if agent not in AGENT_PROMPTS or agent == "CLAUDIA":
-            return {"status": "error", "message": f"Ejen {agent} tidak wujud."}
+        if not assignments:
+            return {"status": "error", "message": "Claudia tidak memberikan tugasan kepada sesiapa."}
 
-        # Step 2: Specialized Agent
-        result, _ = call_nvidia(AGENT_PROMPTS[agent], task, data.model_name)
+        # Step 2: Execute each assigned agent
+        all_results = []
+        for assign in assignments:
+            agent = assign.get("agent", "").upper()
+            task = assign.get("task", "")
+            
+            if agent in AGENT_PROMPTS and agent != "CLAUDIA":
+                res, speed = call_nvidia(AGENT_PROMPTS[agent], task, data.model_name)
+                
+                # Drive & Logging
+                filename = f"{agent}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
+                background_tasks.add_task(upload_to_drive, filename, res, agent)
+                add_json_log(agent, data.model_name, "Success", speed)
+                
+                all_results.append({
+                    "agent": agent,
+                    "task": task,
+                    "result": res,
+                    "speed": f"{speed:.2f}s"
+                })
+
         total_time = time.time() - total_start
         
-        # Step 3: Drive & Logging
-        filename = f"{agent}_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
-        background_tasks.add_task(upload_to_drive, filename, result, agent)
-        add_json_log(agent, data.model_name, "Success", total_time)
-        
         return {
-            "status": "success", "assigned_to": agent, "task": task,
-            "result": result, "speed": f"{total_time:.2f}s", "model": data.model_name
+            "status": "success",
+            "results": all_results,
+            "total_speed": f"{total_time:.2f}s",
+            "model": data.model_name
         }
     except Exception as e:
         add_json_log("System", data.model_name, f"Error: {str(e)}", 0)
