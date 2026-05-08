@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Orchestrator Pro - Major Upgrade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .terminal { font-family: 'Fira+Code', monospace; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .gradient-bg { background: radial-gradient(circle at top right, #1e1b4b, #0f172a 50%, #020617); }
+        .log-entry { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-slate-200 p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center relative">
+            <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full"></div>
+            <h1 class="text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 mb-2 tracking-tight">
+                Multi-Agent AI Orchestrator
+            </h1>
+            <p class="text-slate-400 text-lg">Sistem Router Model NVIDIA NIM & Automasi Google Drive</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left Panel (Input & Config) -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="glass p-8 rounded-3xl shadow-2xl">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
+                        <span class="p-2 bg-blue-500/20 rounded-lg"><svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg></span>
+                        Konfigurasi Tugas
+                    </h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Pilih Model NVIDIA NIM</label>
+                            <select id="modelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <option value="meta/llama3-70b-instruct">Meta Llama 3 (70B)</option>
+                                <option value="qwen/qwen2-72b-instruct">Qwen 2 (72B)</option>
+                                <option value="deepseek-ai/deepseek-coder-33b-instruct">DeepSeek Coder (33B)</option>
+                                <option value="mistralai/mixtral-8x7b-instruct-v0.1">Mixtral 8x7B</option>
+                                <option value="nvidia/llama-3.1-nemotron-70b-instruct">Nemotron 70B</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Arahan Pengguna</label>
+                            <textarea 
+                                id="userPrompt" 
+                                rows="5" 
+                                class="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-slate-600 text-sm"
+                                placeholder="Tulis tugas anda di sini..."
+                            ></textarea>
+                        </div>
+
+                        <button 
+                            id="sendBtn"
+                            onclick="executeTask()"
+                            class="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg hover:shadow-blue-500/20 flex items-center justify-center gap-3"
+                        >
+                            <span>Laksanakan Orkestra</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History Table Area -->
+                <div class="glass rounded-3xl overflow-hidden border border-slate-800/50">
+                    <div class="bg-slate-900/50 p-4 border-b border-slate-800 flex justify-between items-center">
+                        <h3 class="text-sm font-bold uppercase tracking-widest text-slate-400">Sejarah Kerja Ejen</h3>
+                        <span class="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full border border-green-500/20">Auto-Sync</span>
+                    </div>
+                    <div class="max-h-[300px] overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="sticky top-0 bg-slate-950/90 backdrop-blur-md">
+                                <tr class="text-slate-500 border-b border-slate-800">
+                                    <th class="p-4 font-semibold">Masa</th>
+                                    <th class="p-4 font-semibold">Ejen</th>
+                                    <th class="p-4 font-semibold text-right">Kelajuan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <!-- Data log masuk di sini -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel (Execution & Logs) -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Terminal -->
+                <div class="bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl group">
+                    <div class="bg-slate-900 px-6 py-3 border-b border-slate-800 flex items-center justify-between">
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-rose-500/30 group-hover:bg-rose-500 transition-colors"></div>
+                            <div class="w-3 h-3 rounded-full bg-amber-500/30 group-hover:bg-amber-500 transition-colors"></div>
+                            <div class="w-3 h-3 rounded-full bg-emerald-500/30 group-hover:bg-emerald-500 transition-colors"></div>
+                        </div>
+                        <span class="text-[10px] text-slate-500 font-mono tracking-widest uppercase">system-orchestration-v2.0</span>
+                    </div>
+                    <div id="terminal" class="terminal p-6 h-64 overflow-y-auto text-sm space-y-2 leading-relaxed">
+                        <div class="text-slate-600 animate-pulse">Sedia untuk arahan baru...</div>
+                    </div>
+                </div>
+
+                <!-- Live Results -->
+                <div id="resultBox" class="hidden glass p-8 rounded-3xl border-l-4 border-indigo-500 shadow-2xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-8 opacity-[0.03]">
+                        <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                    </div>
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center gap-4">
+                            <div id="agentBadge" class="px-5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-lg shadow-indigo-500/10">
+                                EJEN: ZARA
+                            </div>
+                            <div id="speedBadge" class="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-xl border border-amber-400/20">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                <span id="speedVal">0.00s</span>
+                            </div>
+                        </div>
+                        <div class="text-[10px] text-slate-500 font-mono" id="timestamp"></div>
+                    </div>
+                    <div id="finalOutput" class="text-slate-200 leading-relaxed whitespace-pre-wrap text-sm selection:bg-indigo-500/30">
+                        <!-- Hasil kerja muncul di sini -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const historyBody = document.getElementById('historyBody');
+        const userPrompt = document.getElementById('userPrompt');
+        const modelSelect = document.getElementById('modelSelect');
+        const sendBtn = document.getElementById('sendBtn');
+        const resultBox = document.getElementById('resultBox');
+
+        function addLog(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = 'log-entry flex gap-3';
+            let color = 'text-slate-400';
+            let prefix = '::';
+
+            if (type === 'success') { color = 'text-emerald-400'; prefix = '[OK]'; }
+            if (type === 'error') { color = 'text-rose-400'; prefix = '[ERR]'; }
+            if (type === 'claudia') { color = 'text-indigo-400'; prefix = '[MANAGER]'; }
+            if (type === 'agent') { color = 'text-blue-400'; prefix = '[AGENT]'; }
+
+            div.innerHTML = `<span class="${color} font-mono font-bold opacity-50">${prefix}</span> <span class="${color}">${message}</span>`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        async function fetchHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const logs = await response.json();
+                historyBody.innerHTML = logs.map(log => `
+                    <tr class="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                        <td class="p-4 text-slate-500 font-mono">${log.timestamp.split(' ')[1]}</td>
+                        <td class="p-4">
+                            <span class="font-bold ${log.agent === 'ZARA' ? 'text-emerald-400' : 'text-amber-400'}">${log.agent}</span>
+                        </td>
+                        <td class="p-4 text-right font-mono text-slate-400">${log.speed}</td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error('Gagal fetch sejarah:', err); }
+        }
+
+        async function executeTask() {
+            const prompt = userPrompt.value.trim();
+            const model = modelSelect.value;
+            if (!prompt) return alert('Sila masukkan arahan.');
+
+            terminal.innerHTML = '';
+            resultBox.classList.add('hidden');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = `<span>Memproses...</span> <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>`;
+
+            addLog(`Menggunakan model: ${model}`);
+            addLog('Menghantar arahan kepada Claudia (Manager)...', 'claudia');
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt, model_name: model })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    addLog(`Claudia menyerahkan tugas kepada ${data.assigned_to}...`, 'claudia');
+                    addLog(`Tugasan: ${data.task}`);
+                    addLog(`Menunggu hasil dari ${data.assigned_to}...`, 'agent');
+                    
+                    setTimeout(() => {
+                        addLog(`Selesai dalam ${data.speed}!`, 'success');
+                        document.getElementById('agentBadge').innerText = `EJEN: ${data.assigned_to}`;
+                        document.getElementById('speedVal').innerText = data.speed;
+                        document.getElementById('timestamp').innerText = new Date().toLocaleTimeString();
+                        document.getElementById('finalOutput').innerText = data.result;
+                        resultBox.classList.remove('hidden');
+                        
+                        sendBtn.disabled = false;
+                        sendBtn.innerHTML = `<span>Laksanakan Orkestra</span> <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>`;
+                        fetchHistory();
+                    }, 800);
+                } else {
+                    addLog(`Ralat: ${data.message}`, 'error');
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = `<span>Laksanakan Orkestra</span>`;
+                }
+            } catch (error) {
+                addLog('Gagal menyambung ke server.', 'error');
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<span>Laksanakan Orkestra</span>`;
+            }
+        }
+
+        // Auto-refresh history every 10 seconds
+        fetchHistory();
+        setInterval(fetchHistory, 10000);
+    </script>
+</body>
+</html>
