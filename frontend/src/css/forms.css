@@ -1,0 +1,78 @@
+/* ============ Kad asas & kepala seksyen ============ */
+.card {
+    background: var(--card);
+    border: 1px solid var(--rule); border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(29, 42, 50, .05);
+}
+
+.card-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 13px 20px; border-bottom: 1px solid var(--rule);
+}
+
+.card-title {
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .15em;
+}
+
+.card-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-faint); }
+
+.section-head { display: flex; align-items: baseline; gap: 14px; margin: 44px 0 14px; }
+.section-head .card-title { flex-shrink: 0; }
+.section-head .rule { flex: 1; border-top: 1px solid var(--rule); }
+
+/* ============ Borang arahan kerja ============ */
+.memo-meta { padding: 14px 20px; border-bottom: 1px solid var(--rule-soft); }
+
+.meta-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 5px 0; font-size: 13px;
+}
+
+.meta-label {
+    width: 110px; flex-shrink: 0;
+    font-size: 10px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-faint);
+}
+
+.meta-value { color: var(--ink-soft); }
+.meta-value.mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+
+select {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    color: var(--ink); background: var(--card);
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: 5px 8px; max-width: 100%;
+}
+
+.memo-body { padding: 18px 20px 20px; }
+
+textarea {
+    width: 100%; min-height: 148px; resize: vertical;
+    font: 15px/28px 'IBM Plex Sans', sans-serif; color: var(--ink);
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: 3px 14px 8px;
+    background-color: var(--card);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule-soft) 27px 28px);
+    background-attachment: local;
+}
+
+textarea::placeholder { color: var(--ink-faint); }
+textarea:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 1px var(--ink); }
+
+.btn-stamp {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; margin-top: 16px; padding: 14px;
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: #F7F6F2; background: var(--ink);
+    border: 1px solid var(--ink); border-radius: 2px;
+    cursor: pointer;
+    transition: background .15s ease, transform .05s ease;
+}
+
+.btn-stamp:hover:not(:disabled) { background: #2B3D47; }
+.btn-stamp:active:not(:disabled) { transform: translateY(1px); }
+.btn-stamp:disabled { opacity: .55; cursor: default; }

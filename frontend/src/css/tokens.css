@@ -1,0 +1,27 @@
+/* ============ Design Tokens ============ */
+:root {
+    --paper:      #EFF2F0;
+    --card:       #FBFCFB;
+    --ink:        #1D2A32;
+    --ink-soft:   #4E6069;
+    --ink-faint:  #7E929B;
+    --rule:       #C7D2D2;
+    --rule-soft:  #DFE6E5;
+    --stamp:      #B23A2C;
+    --green:      #2E6B4E;
+    --green-soft: #E0EAE2;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.6 'IBM Plex Sans', system-ui, sans-serif;
+    padding: 32px 20px 24px;
+}
+
+.sheet { max-width: 1240px; margin: 0 auto; }
+.hidden { display: none !important; }
+
+:focus-visible { outline: 2px solid var(--stamp); outline-offset: 2px; }

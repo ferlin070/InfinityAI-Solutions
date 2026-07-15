@@ -14,29 +14,65 @@ Platform orkestrasi multi-agent AI: pengguna beri arahan kepada **Claudia (Manag
 
 ## Mula Pantas
 
+### Pra-syarat
+1. Copy `.env.example` → `.env` dan isi kunci API NVIDIA
+2. Python 3.10+ (untuk backend) atau Docker
+
+### Cara Menjalankan
+
 | Cara | Arahan |
 |---|---|
-| Windows (mudah) | Klik dua kali `setup_dan_run.bat` |
-| Manual | `pip install -r requirements.txt` kemudian `python main.py` |
-| Docker | `docker build -t ai-command-center . && docker run -d -p 7860:7860 ai-command-center` |
+| **Docker Compose** (disyorkan) | `docker-compose up -d` |
+| **Manual Python** | `cd backend && pip install -r requirements.txt && python -m src.main` |
+| **Windows Batch** | Klik dua kali `setup_dan_run.bat` (jika tersedia) |
 
-Dashboard: `http://localhost:7860`. Konfigurasi `.env` diperlukan — rujuk [panduan pemasangan](docs/architecture/sistem-semasa.md#4-panduan-instalasi).
+Dashboard: `http://localhost:7860` 
+
+Rujuk [backend/README.md](backend/README.md) untuk setup terperinci.
 
 ## Struktur Repo
 
 ```
-├── main.py                 # Backend FastAPI + orkestrasi agent (aplikasi penuh)
-├── index.html              # Dashboard web (single page)
-├── tests/                  # Ujian pytest
+├── backend/
+│   ├── src/
+│   │   ├── main.py                  # FastAPI app
+│   │   ├── api/routes.py            # Endpoints
+│   │   ├── core/                    # Config, middleware, constants
+│   │   ├── services/                # LLM, Drive, logging, orchestrator
+│   │   ├── schemas/                 # Pydantic models
+│   │   └── agents/                  # Agent system
+│   ├── tests/                       # Pytest
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── README.md
+├── frontend/
+│   ├── src/
+│   │   ├── index.html               # Main dashboard HTML
+│   │   ├── css/                     # Design tokens + component styles
+│   │   └── js/                      # API client, logger, UI
+│   └── README.md
+├── gateway/                         # Node.js WhatsApp gateway (v2 future)
 ├── docs/
-│   ├── architecture/       # sistem-semasa.md (senibina semasa) · proposal-v2.md (DRAF v2)
-│   ├── business/           # Dokumentasi produk untuk client/pemasaran
-│   ├── frontend/           # Design system dashboard
-│   ├── development/        # Rekod audit & nota pembangunan
-│   └── archive/            # Dokumen lama yang dikekalkan untuk rujukan
-├── Dockerfile              # Deployment (port 7860)
-└── .github/workflows/      # Auto-sync ke Hugging Face Spaces
+│   ├── architecture/                # senibina semasa, proposal-v2
+│   ├── business/                    # Dokumentasi produk
+│   ├── frontend/                    # Design system
+│   ├── development/                 # Audit reports
+│   └── archive/                     # Dokumen lama
+├── docker-compose.yml               # Multi-service orchestration
+├── .env.example                     # Environment template
+├── Dockerfile                       # Root Dockerfile (deprecated — use backend/Dockerfile)
+└── .github/workflows/               # Auto-sync ke Hugging Face Spaces
 ```
+
+## Struktur Baru (Monorepo)
+
+Projek telah direfaktor menjadi **monorepo terstruktur** untuk skalabiliti v2:
+
+- **`backend/src/`** — FastAPI modular (core, services, api, schemas, agents)
+- **`frontend/src/`** — HTML/CSS/JS terpisah (CSS tokens, JS modules)
+- **`gateway/`** — Node.js WhatsApp gateway (sedia untuk v2)
+
+Lihat [backend/README.md](backend/README.md) dan [frontend/README.md](frontend/README.md) untuk detail.
 
 ## Dokumentasi
 

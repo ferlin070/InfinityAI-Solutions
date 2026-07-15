@@ -1,0 +1,19 @@
+/* ============ Responsif & aksesibiliti ============ */
+@media (max-width: 960px) {
+    .workfloor { grid-template-columns: 1fr; }
+    .roster { grid-template-columns: repeat(2, 1fr); }
+    .letterhead { flex-direction: column; align-items: flex-start; }
+    .figures { text-align: left; }
+    .fig-row { justify-content: flex-start; }
+    .tarikh { margin-top: 4px; }
+    h1 { font-size: 30px; }
+}
+
+@media (max-width: 440px) {
+    .roster { grid-template-columns: 1fr; }
+    .meta-row { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+}

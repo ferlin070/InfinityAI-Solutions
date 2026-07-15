@@ -1,0 +1,37 @@
+/* ============ Layout ============ */
+.workfloor {
+    display: grid; grid-template-columns: 7fr 5fr;
+    gap: 24px; margin-top: 28px; align-items: start;
+}
+
+/* ============ Senarai bertugas ============ */
+.roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+.staff { padding: 14px 16px; }
+
+.staff-top {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    color: var(--ink-faint); margin-bottom: 10px;
+}
+
+.staff-status { display: flex; align-items: center; gap: 6px; color: var(--green); font-weight: 500; letter-spacing: .08em; }
+.staff-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+.staff-name {
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 19px; font-weight: 700; line-height: 1.1;
+}
+
+.staff-role { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+.staff--lead { border: 2px solid var(--ink); }
+.staff--lead .staff-role { color: var(--stamp); font-weight: 600; }
+
+footer {
+    margin-top: 52px; padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}

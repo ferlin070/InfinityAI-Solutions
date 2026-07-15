@@ -22,6 +22,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [2/3] Memasang library (Ini mungkin mengambil masa sebentar)...
+cd backend
 python -m pip install -r requirements.txt
 
 echo.
@@ -32,5 +33,5 @@ echo  SERVER AKAN BERMULA DI: http://localhost:7860
 echo  (Sila buka alamat ini di browser anda)
 echo --------------------------------------------------
 echo.
-python main.py
+python -m src.main
 pause

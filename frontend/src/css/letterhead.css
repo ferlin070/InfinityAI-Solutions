@@ -1,0 +1,41 @@
+/* ============ Letterhead ============ */
+.letterhead {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    gap: 24px; padding-bottom: 20px;
+    border-bottom: 4px double var(--ink);
+}
+
+.wordmark {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft); margin-bottom: 6px;
+}
+
+h1 {
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 36px; font-weight: 700; line-height: 1.05;
+    text-transform: uppercase; letter-spacing: .01em;
+}
+
+.letterhead-sub { font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
+
+.figures { text-align: right; flex-shrink: 0; }
+
+.tarikh {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--ink-soft); margin-bottom: 10px;
+}
+
+.fig-row { display: flex; gap: 28px; justify-content: flex-end; }
+
+.fig-label {
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600;
+}
+
+.fig-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 26px; font-weight: 500; line-height: 1.2;
+}
+
+.fig-value.selesai { color: var(--green); }

@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "7860:7860"
+    environment:
+      - NVIDIA_NIM_API_KEY=${NVIDIA_NIM_API_KEY}
+      - GAS_WEB_APP_URL=${GAS_WEB_APP_URL}
+      - ZARA_DRIVE_FOLDER_ID=${ZARA_DRIVE_FOLDER_ID}
+      - DANISH_DRIVE_FOLDER_ID=${DANISH_DRIVE_FOLDER_ID}
+      - MAYA_DRIVE_FOLDER_ID=${MAYA_DRIVE_FOLDER_ID}
+      - AMELIA_DRIVE_FOLDER_ID=${AMELIA_DRIVE_FOLDER_ID}
+      - AIMAN_DRIVE_FOLDER_ID=${AIMAN_DRIVE_FOLDER_ID}
+      - ADILA_DRIVE_FOLDER_ID=${ADILA_DRIVE_FOLDER_ID}
+      - HAKIM_DRIVE_FOLDER_ID=${HAKIM_DRIVE_FOLDER_ID}
+      - PORT=7860
+    volumes:
+      - ./backend:/app
+      - ./frontend:/app/frontend

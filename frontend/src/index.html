@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfinityAI Solutions — Pejabat Operasi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+
+    <!-- Design tokens (colors, fonts, base styles) -->
+    <link rel="stylesheet" href="css/tokens.css">
+    <!-- Component styles -->
+    <link rel="stylesheet" href="css/letterhead.css">
+    <link rel="stylesheet" href="css/forms.css">
+    <link rel="stylesheet" href="css/table.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <!-- Responsive utilities -->
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+<div class="sheet">
+
+    <!-- Letterhead -->
+    <header class="letterhead">
+        <div>
+            <div class="wordmark">InfinityAI Solutions · Sistem AI Command Center</div>
+            <h1>Pejabat Operasi Harian</h1>
+            <p class="letterhead-sub">Lapan ejen bertugas · Hasil kerja disimpan ke Google Drive</p>
+        </div>
+        <div class="figures">
+            <div class="tarikh" id="tarikh"></div>
+            <div class="fig-row">
+                <div>
+                    <div class="fig-label">Jumlah Tugasan</div>
+                    <div class="fig-value" id="totalTasks">0</div>
+                </div>
+                <div>
+                    <div class="fig-label">Selesai</div>
+                    <div class="fig-value selesai" id="completedTasks">0</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="workfloor">
+
+        <!-- Borang arahan kerja -->
+        <section class="card" aria-labelledby="borangTitle">
+            <div class="card-head">
+                <h2 class="card-title" id="borangTitle">Borang Arahan Kerja</h2>
+                <span class="card-note">Salinan: Fail Operasi</span>
+            </div>
+            <div class="memo-meta">
+                <div class="meta-row">
+                    <span class="meta-label">No. Rujukan</span>
+                    <span class="meta-value mono" id="refNo"></span>
+                </div>
+                <div class="meta-row">
+                    <span class="meta-label">Kepada</span>
+                    <span class="meta-value">Claudia — Ketua Turus (agihan kepada ejen berkaitan)</span>
+                </div>
+                <div class="meta-row">
+                    <label class="meta-label" for="modelSelect">Enjin AI</label>
+                    <select id="modelSelect">
+                        <option value="meta/llama-3.1-70b-instruct">Llama 3.1 (Recommended)</option>
+                        <option value="moonshotai/kimi-k2.6">Kimi-k2.6 (Thinking Model)</option>
+                        <option value="nvidia/llama-3.1-nemotron-70b-instruct">Nemotron 70B</option>
+                        <option value="qwen/qwen2.5-coder-32b-instruct">Qwen 2.5 Coder</option>
+                        <option value="deepseek-ai/deepseek-v4-pro">DeepSeek v4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="memo-body">
+                <label class="meta-label" for="userPrompt" style="display:block; margin-bottom:8px;">Butiran Arahan</label>
+                <textarea id="userPrompt" rows="5" placeholder="Tulis arahan kerja untuk pasukan di sini…"></textarea>
+                <button id="sendBtn" class="btn-stamp">
+                    <span>Hantar Arahan ke Claudia</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Log perhubungan + minit kerja -->
+        <div>
+            <section class="card" aria-labelledby="logTitle">
+                <div class="card-head">
+                    <h2 class="card-title" id="logTitle">Log Perhubungan</h2>
+                    <span class="card-note">Masa nyata</span>
+                </div>
+                <div class="log-scroll">
+                    <div id="terminal" aria-live="polite">
+                        <div class="log-empty">Tiada catatan lagi. Log ditulis di sini sebaik arahan dihantar.</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="resultBox" class="hidden card minit" aria-labelledby="agentBadge">
+                <div class="minit-head">
+                    <span id="agentBadge" class="cop">Minit Kerja</span>
+                    <span id="speedBadge" class="speed">0.00s</span>
+                </div>
+                <div id="finalOutput"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Senarai bertugas -->
+    <div class="section-head">
+        <h2 class="card-title">Senarai Bertugas Hari Ini</h2>
+        <span class="rule"></span>
+        <span class="card-note">8 / 8 hadir</span>
+    </div>
+    <div class="roster">
+        <div class="card staff staff--lead">
+            <div class="staff-top"><span>No. Staf 01</span><span class="staff-status">Menyelaras</span></div>
+            <div class="staff-name">Claudia</div>
+            <div class="staff-role">Ketua Turus</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 02</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Zara</div>
+            <div class="staff-role">Kewangan</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 03</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Maya</div>
+            <div class="staff-role">Jualan &amp; CRM</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 04</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Aiman</div>
+            <div class="staff-role">Pemasaran</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 05</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Danish</div>
+            <div class="staff-role">Kandungan Kreatif</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 06</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Hakim</div>
+            <div class="staff-role">Arkitek Sistem</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 07</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Amelia</div>
+            <div class="staff-role">Latihan</div>
+        </div>
+        <div class="card staff">
+            <div class="staff-top"><span>No. Staf 08</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-name">Adila</div>
+            <div class="staff-role">Operasi</div>
+        </div>
+    </div>
+
+    <!-- Buku log aktiviti -->
+    <div class="section-head">
+        <h2 class="card-title">Buku Log Aktiviti</h2>
+        <span class="rule"></span>
+        <span class="card-note">Kemas kini setiap 10 saat</span>
+    </div>
+    <section class="card ledger-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Masa</th>
+                    <th>Ejen</th>
+                    <th>Enjin</th>
+                    <th>Status</th>
+                    <th class="t-right">Kelajuan</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </section>
+
+    <footer>
+        <span>InfinityAI Solutions — Dokumen Dalaman</span>
+        <span>Dikuasakan oleh 8 Ejen AI</span>
+    </footer>
+</div>
+
+<!-- Utility scripts (load in order) -->
+<script src="js/api.js"></script>
+<script src="js/logger.js"></script>
+<script src="js/history.js"></script>
+<script src="js/ui.js"></script>
+<!-- Main entry point (last) -->
+<script src="js/main.js"></script>
+</body>
+</html>
