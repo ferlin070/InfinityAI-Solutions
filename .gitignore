@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 daily_log.json
 daily_log.txt
+*.log

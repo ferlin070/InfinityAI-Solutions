@@ -4,15 +4,46 @@ import requests
 import time
 from datetime import datetime
 from openai import OpenAI
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
+# Configure logging
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("server.log", encoding="utf-8")
+    ]
+)
+logger = logging.getLogger("ai_command_center")
+
 app = FastAPI(title="AI Command Center: 8-Agent System")
+
+# Configure CORS Middleware (Medium/Low Fix)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+# Custom HTTP Middleware to inject Security Headers (Medium/Low Fix)
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # Configuration
 NVIDIA_API_KEY = os.getenv("NVIDIA_NIM_API_KEY")
@@ -30,9 +61,20 @@ FOLDER_IDS = {
     "HAKIM": os.getenv("HAKIM_DRIVE_FOLDER_ID")
 }
 
+# Startup verification of environment variables
+if not NVIDIA_API_KEY:
+    logger.warning("NVIDIA_NIM_API_KEY tidak dikonfigurasikan dalam fail .env! Panggilan API ke model NVIDIA akan gagal.")
+if not GAS_URL:
+    logger.warning("GAS_WEB_APP_URL tidak dikonfigurasikan dalam fail .env! Sistem tidak dapat memuat naik hasil kerja ke Google Drive.")
+
+for agent_name, folder_id in FOLDER_IDS.items():
+    if not folder_id:
+        logger.warning(f"Google Drive folder ID untuk ejen '{agent_name}' tidak dijumpai dalam fail .env.")
+
 client = OpenAI(
     base_url="https://integrate.api.nvidia.com/v1",
-    api_key=NVIDIA_API_KEY
+    api_key=NVIDIA_API_KEY or "missing_key",
+    timeout=60.0 # Timeout configuration (Medium/Low Fix)
 )
 
 # --- SYSTEM PROMPTS (THE BRAIN) ---
@@ -67,15 +109,16 @@ class UserInput(BaseModel):
 def upload_to_drive(filename, content, agent_name):
     folder_id = FOLDER_IDS.get(agent_name)
     if not GAS_URL or not folder_id:
-        print(f"Skip Drive: GAS_URL atau Folder ID untuk {agent_name} tiada.")
+        logger.info(f"Skip Drive: GAS_URL atau Folder ID untuk {agent_name} tiada.")
         return
 
     try:
         payload = {"filename": filename, "content": content, "folderId": folder_id}
-        requests.post(GAS_URL, json=payload, timeout=30)
-        print(f"GAS Upload Berjaya: {filename} ({agent_name})")
+        resp = requests.post(GAS_URL, json=payload, timeout=30)
+        resp.raise_for_status()
+        logger.info(f"GAS Upload Berjaya: {filename} ({agent_name})")
     except Exception as e:
-        print(f"Ralat Upload Drive: {str(e)}")
+        logger.error(f"Ralat Upload Drive untuk {agent_name}: {str(e)}", exc_info=True)
 
 def add_json_log(agent, model, status, duration):
     log_entry = {
@@ -85,10 +128,17 @@ def add_json_log(agent, model, status, duration):
     logs = []
     if os.path.exists(LOG_FILE):
         try:
-            with open(LOG_FILE, "r", encoding="utf-8") as f: logs = json.load(f)
-        except: logs = []
+            with open(LOG_FILE, "r", encoding="utf-8") as f:
+                logs = json.load(f)
+        except Exception as e:
+            logger.warning(f"Ralat membaca fail log harian: {str(e)}. Memulakan log baru.")
+            logs = []
     logs.insert(0, log_entry)
-    with open(LOG_FILE, "w", encoding="utf-8") as f: json.dump(logs[:50], f, indent=4)
+    try:
+        with open(LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(logs[:50], f, indent=4)
+    except Exception as e:
+        logger.error(f"Gagal menulis log ke fail {LOG_FILE}: {str(e)}")
 
 def call_nvidia(sys_p, usr_p, model, temp=0.7):
     start = time.time()
@@ -109,7 +159,11 @@ def call_nvidia(sys_p, usr_p, model, temp=0.7):
         )
         return resp.choices[0].message.content, time.time() - start
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Ralat semasa memanggil API NVIDIA NIM: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Ralat dalaman semasa berhubung dengan API NVIDIA NIM."
+        )
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -121,21 +175,56 @@ async def history():
     with open(LOG_FILE, "r", encoding="utf-8") as f: return json.load(f)
 
 def extract_json(text):
-    """Mencari dan mengekstrak objek JSON pertama dari teks."""
-    start = text.find('{')
-    if start == -1: return None
+    """Mencari dan mengekstrak objek JSON pertama dari teks secara robust."""
+    if not text:
+        return None
+        
+    text_clean = text.replace("```json", "").replace("```", "").strip()
     
-    # Cuba cari kurungan sepadan
+    # Cuba cari kurungan sepadan dengan mengabaikan watak di dalam rentetan (strings)
+    start = text_clean.find('{')
+    if start == -1: 
+        return None
+    
     count = 0
-    for i in range(start, len(text)):
-        if text[i] == '{': count += 1
-        elif text[i] == '}': count -= 1
-        if count == 0:
-            return text[start:i+1]
+    in_string = False
+    escape = False
+    
+    for i in range(start, len(text_clean)):
+        char = text_clean[i]
+        if escape:
+            escape = False
+            continue
+        if char == '\\':
+            escape = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
             
-    # Jika gagal sepadan (mungkin truncated), ambil sahaja hingga akhir
-    # dan cuba tambah penutup } jika perlu
-    return text[start:].strip()
+        if not in_string:
+            if char == '{':
+                count += 1
+            elif char == '}':
+                count -= 1
+                if count == 0:
+                    candidate = text_clean[start:i+1]
+                    try:
+                        # Pengesahan standard JSON
+                        json.loads(candidate)
+                        return candidate
+                    except Exception:
+                        pass # Cuba cari kurungan lain jika ini bukan JSON sah
+                        
+    # Jika gagal sepadan secara dinamik, cuba guna pembilangan asal sebagai sandaran (fallback)
+    count = 0
+    for i in range(start, len(text_clean)):
+        if text_clean[i] == '{': count += 1
+        elif text_clean[i] == '}': count -= 1
+        if count == 0:
+            return text_clean[start:i+1]
+            
+    return text_clean[start:].strip()
 
 @app.post("/api/execute")
 async def execute(data: UserInput, background_tasks: BackgroundTasks):
@@ -144,16 +233,15 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
         # Step 1: Claudia (Manager) decides
         claudia_out, _ = call_nvidia(AGENT_PROMPTS["CLAUDIA"], data.prompt, data.model_name, temp=0.1)
         
-        json_str = extract_json(claudia_out.replace("```json", "").replace("```", "").strip())
+        json_str = extract_json(claudia_out)
         if not json_str:
-            return {"status": "error", "message": f"Claudia membalas tanpa JSON: {claudia_out[:100]}..."}
+            logger.warning(f"Claudia membalas tanpa JSON sah. Jawapan Claudia: {claudia_out[:200]}")
+            return {"status": "error", "message": "Claudia membalas tanpa JSON sah."}
             
         try:
             # Cara 1: Bersihkan watak kawalan (control characters)
             import re
-            # Buang watak kawalan kecuali tab, newline, dsb
             cleaned = "".join(ch for ch in json_str if ch.isprintable() or ch in '\n\r\t')
-            # Tukar newline kepada literal \n untuk json.loads
             cleaned = cleaned.replace('\n', '\\n').replace('\r', '\\r')
             decision = json.loads(cleaned)
         except Exception:
@@ -175,8 +263,9 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
                     for a, t in zip(agents, tasks):
                         assignments.append({"agent": a, "task": t})
                     decision = {"status": "accepted", "assignments": assignments}
-            except:
-                return {"status": "error", "message": f"Kegagalan Total JSON: {json_str[:100]}..."}
+            except Exception as e:
+                logger.error(f"Kegagalan total menghurai JSON dari Claudia: {str(e)}")
+                return {"status": "error", "message": "Kegagalan menghurai keputusan tugasan dari Claudia."}
         
         # Handle Rejection
         if decision.get("status") == "rejected":
@@ -216,9 +305,14 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
             "total_speed": f"{total_time:.2f}s",
             "model": data.model_name
         }
+    except HTTPException as he:
+        add_json_log("System", data.model_name, f"Error: {he.detail}", 0)
+        raise he
     except Exception as e:
-        add_json_log("System", data.model_name, f"Error: {str(e)}", 0)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"System execution failure: {str(e)}", exc_info=True)
+        err_msg = "Ralat dalaman sistem semasa memproses tugasan."
+        add_json_log("System", data.model_name, f"Error: {err_msg}", 0)
+        raise HTTPException(status_code=500, detail=err_msg)
 
 if __name__ == "__main__":
     import uvicorn

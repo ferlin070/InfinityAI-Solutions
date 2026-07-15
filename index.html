@@ -184,6 +184,16 @@
         const sendBtn = document.getElementById('sendBtn');
         const resultBox = document.getElementById('resultBox');
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.toString()
+                      .replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+
         function addLog(msg, type = 'info') {
             const div = document.createElement('div');
             let color = 'text-slate-500';
@@ -191,7 +201,15 @@
             if (type === 'error') color = 'text-rose-400';
             if (type === 'agent') color = 'text-blue-400';
             div.className = `${color} font-mono animate-in fade-in slide-in-from-left-2`;
-            div.innerHTML = `<span class="opacity-30">❯</span> ${msg}`;
+            
+            const prefix = document.createElement('span');
+            prefix.className = 'opacity-30';
+            prefix.textContent = '❯ ';
+            
+            const content = document.createTextNode(msg);
+            
+            div.appendChild(prefix);
+            div.appendChild(content);
             terminal.appendChild(div);
             terminal.scrollTop = terminal.scrollHeight;
         }
@@ -204,15 +222,16 @@
                 document.getElementById('completedTasks').innerText = logs.filter(l => l.status === 'Success').length;
                 historyBody.innerHTML = logs.map(l => `
                     <tr class="hover:bg-slate-900/50 transition-colors">
-                        <td class="p-6 text-slate-500 font-mono">${l.timestamp}</td>
-                        <td class="p-6 font-bold text-white">${l.agent}</td>
-                        <td class="p-6 text-slate-600">${l.model}</td>
-                        <td class="p-6"><span class="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">${l.status}</span></td>
-                        <td class="p-6 text-right font-mono text-slate-400">${l.speed}</td>
+                        <td class="p-6 text-slate-500 font-mono">${escapeHtml(l.timestamp)}</td>
+                        <td class="p-6 font-bold text-white">${escapeHtml(l.agent)}</td>
+                        <td class="p-6 text-slate-600">${escapeHtml(l.model)}</td>
+                        <td class="p-6"><span class="px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-bold">${escapeHtml(l.status)}</span></td>
+                        <td class="p-6 text-right font-mono text-slate-400">${escapeHtml(l.speed)}</td>
                     </tr>
                 `).join('');
             } catch(e) {}
         }
+
 
         async function executeTask() {
             const p = userPrompt.value.trim();
