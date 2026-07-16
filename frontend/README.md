@@ -113,8 +113,8 @@ All components using `var(--stamp)` will automatically update.
 
 ## Future Improvements
 
-- [ ] Dark mode toggle
-- [ ] Component library extraction
-- [ ] Internationalization (i18n) for non-Malay languages
-- [ ] Progressive Web App (PWA) support
-- [ ] Offline capability
+- [x] Dark mode toggle
+- [x] Component library extraction
+- [x] Internationalization (i18n) for non-Malay languages
+- [x] Progressive Web App (PWA) support
+- [x] Offline capability
