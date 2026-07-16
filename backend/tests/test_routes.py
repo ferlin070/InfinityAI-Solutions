@@ -55,3 +55,20 @@ def test_api_logout():
     # Accessing dashboard again should fail/redirect
     dashboard_response = client.get("/", cookies={"session_token": session_cookie}, follow_redirects=False)
     assert dashboard_response.status_code == 303
+
+def test_api_me_route():
+    # 1. Access without token should return 401
+    response = client.get("/api/me")
+    assert response.status_code == 401
+    
+    # 2. Access with valid token should return user profile
+    login_response = client.post("/api/login", json={"email": "bos@infinityai.com", "password": "password123"})
+    session_cookie = login_response.cookies.get("session_token")
+    
+    me_response = client.get("/api/me", cookies={"session_token": session_cookie})
+    assert me_response.status_code == 200
+    data = me_response.json()
+    assert data["status"] == "success"
+    assert data["user"]["email"] == "bos@infinityai.com"
+    assert data["user"]["name"] == "Bos"
+

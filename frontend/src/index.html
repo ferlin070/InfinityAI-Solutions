@@ -25,48 +25,50 @@
     <!-- Letterhead -->
     <header class="letterhead">
         <div>
-            <div class="wordmark">InfinityAI Solutions · Sistem AI Command Center</div>
-            <h1>Pejabat Operasi Harian</h1>
-            <p class="letterhead-sub">Lapan ejen bertugas · Hasil kerja disimpan ke Google Drive</p>
+            <div class="wordmark" data-i18n="wordmark">InfinityAI Solutions · Sistem AI Command Center</div>
+            <h1 data-i18n="title">Pejabat Operasi Harian</h1>
+            <p class="letterhead-sub" id="letterheadSub" data-i18n="sub-title">Lapan ejen bertugas · Hasil kerja disimpan ke Google Drive</p>
         </div>
         <div class="figures">
             <div style="margin-bottom: 8px; display: flex; gap: 8px; justify-content: flex-end;">
-                <button id="themeToggle" class="btn-theme" aria-label="Tukar tema malam">Mod Malam</button>
-                <button id="logoutBtn" class="btn-theme" aria-label="Log Keluar dari sesi">Log Keluar</button>
+                <button id="langToggle" class="btn-theme" aria-label="Tukar bahasa ke English">EN</button>
+                <button id="themeToggle" class="btn-theme" aria-label="Tukar tema malam" data-i18n="mod-malam">Mod Malam</button>
+                <button id="logoutBtn" class="btn-theme" aria-label="Log Keluar dari sesi" data-i18n="log-keluar">Log Keluar</button>
             </div>
             <div class="tarikh" id="tarikh"></div>
             <div class="fig-row">
                 <div>
-                    <div class="fig-label">Jumlah Tugasan</div>
+                    <div class="fig-label" data-i18n="total-tasks">Jumlah Tugasan</div>
                     <div class="fig-value" id="totalTasks">0</div>
                 </div>
                 <div>
-                    <div class="fig-label">Selesai</div>
+                    <div class="fig-label" data-i18n="completed-tasks">Selesai</div>
                     <div class="fig-value selesai" id="completedTasks">0</div>
                 </div>
             </div>
         </div>
     </header>
 
+
     <div class="workfloor">
 
         <!-- Borang arahan kerja -->
         <section class="card" aria-labelledby="borangTitle">
             <div class="card-head">
-                <h2 class="card-title" id="borangTitle">Borang Arahan Kerja</h2>
-                <span class="card-note">Salinan: Fail Operasi</span>
+                <h2 class="card-title" id="borangTitle" data-i18n="borang-title">Borang Arahan Kerja</h2>
+                <span class="card-note" data-i18n="borang-note">Salinan: Fail Operasi</span>
             </div>
             <div class="memo-meta">
                 <div class="meta-row">
-                    <span class="meta-label">No. Rujukan</span>
+                    <span class="meta-label" data-i18n="ref-no">No. Rujukan</span>
                     <span class="meta-value mono" id="refNo"></span>
                 </div>
                 <div class="meta-row">
-                    <span class="meta-label">Kepada</span>
-                    <span class="meta-value">Claudia — Ketua Turus (agihan kepada ejen berkaitan)</span>
+                    <span class="meta-label" data-i18n="kepada">Kepada</span>
+                    <span class="meta-value" data-i18n="claudia-desc">Claudia — Ketua Turus (agihan kepada ejen berkaitan)</span>
                 </div>
                 <div class="meta-row">
-                    <label class="meta-label" for="modelSelect">Enjin AI</label>
+                    <label class="meta-label" for="modelSelect" data-i18n="enjin-ai">Enjin AI</label>
                     <select id="modelSelect">
                         <option value="meta/llama-3.1-70b-instruct">Llama 3.1 (Recommended)</option>
                         <option value="moonshotai/kimi-k2.6">Kimi-k2.6 (Thinking Model)</option>
@@ -77,9 +79,9 @@
                 </div>
             </div>
             <div class="memo-body">
-                <label class="meta-label" for="userPrompt" style="display:block; margin-bottom:8px;">Butiran Arahan</label>
-                <textarea id="userPrompt" rows="5" placeholder="Tulis arahan kerja untuk pasukan di sini…"></textarea>
-                <button id="sendBtn" class="btn-stamp">
+                <label class="meta-label" for="userPrompt" style="display:block; margin-bottom:8px;" data-i18n="butiran-arahan">Butiran Arahan</label>
+                <textarea id="userPrompt" rows="5" placeholder="Tulis arahan kerja untuk pasukan di sini…" data-i18n="placeholder-arahan"></textarea>
+                <button id="sendBtn" class="btn-stamp" data-i18n="btn-send">
                     <span>Hantar Arahan ke Claudia</span>
                 </button>
             </div>
@@ -89,19 +91,19 @@
         <div>
             <section class="card" aria-labelledby="logTitle">
                 <div class="card-head">
-                    <h2 class="card-title" id="logTitle">Log Perhubungan</h2>
-                    <span class="card-note">Masa nyata</span>
+                    <h2 class="card-title" id="logTitle" data-i18n="log-title">Log Perhubungan</h2>
+                    <span class="card-note" data-i18n="log-note">Masa nyata</span>
                 </div>
                 <div class="log-scroll">
                     <div id="terminal" aria-live="polite">
-                        <div class="log-empty">Tiada catatan lagi. Log ditulis di sini sebaik arahan dihantar.</div>
+                        <div class="log-empty" data-i18n="log-empty">Tiada catatan lagi. Log ditulis di sini sebaik arahan dihantar.</div>
                     </div>
                 </div>
             </section>
 
             <section id="resultBox" class="hidden card minit" aria-labelledby="agentBadge">
                 <div class="minit-head">
-                    <span id="agentBadge" class="cop">Minit Kerja</span>
+                    <span id="agentBadge" class="cop" data-i18n="minit-kerja">Minit Kerja</span>
                     <span id="speedBadge" class="speed">0.00s</span>
                 </div>
                 <div id="finalOutput"></div>
@@ -111,68 +113,68 @@
 
     <!-- Senarai bertugas -->
     <div class="section-head">
-        <h2 class="card-title">Senarai Bertugas Hari Ini</h2>
+        <h2 class="card-title" data-i18n="roster-title">Senarai Bertugas Hari Ini</h2>
         <span class="rule"></span>
-        <span class="card-note">8 / 8 hadir</span>
+        <span class="card-note" data-i18n="roster-note">8 / 8 hadir</span>
     </div>
     <div class="roster">
         <div class="card staff staff--lead">
-            <div class="staff-top"><span>No. Staf 01</span><span class="staff-status">Menyelaras</span></div>
+            <div class="staff-top"><span data-i18n="staff-01">No. Staf 01</span><span class="staff-status" data-i18n="status-coordinating">Menyelaras</span></div>
             <div class="staff-name">Claudia</div>
-            <div class="staff-role">Ketua Turus</div>
+            <div class="staff-role" data-i18n="role-claudia">Ketua Turus</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 02</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-02">No. Staf 02</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Zara</div>
-            <div class="staff-role">Kewangan</div>
+            <div class="staff-role" data-i18n="role-zara">Kewangan</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 03</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-03">No. Staf 03</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Maya</div>
-            <div class="staff-role">Jualan &amp; CRM</div>
+            <div class="staff-role" data-i18n="role-maya">Jualan &amp; CRM</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 04</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-04">No. Staf 04</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Aiman</div>
-            <div class="staff-role">Pemasaran</div>
+            <div class="staff-role" data-i18n="role-aiman">Pemasaran</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 05</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-05">No. Staf 05</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Danish</div>
-            <div class="staff-role">Kandungan Kreatif</div>
+            <div class="staff-role" data-i18n="role-danish">Kandungan Kreatif</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 06</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-06">No. Staf 06</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Hakim</div>
-            <div class="staff-role">Arkitek Sistem</div>
+            <div class="staff-role" data-i18n="role-hakim">Arkitek Sistem</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 07</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-07">No. Staf 07</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Amelia</div>
-            <div class="staff-role">Latihan</div>
+            <div class="staff-role" data-i18n="role-amelia">Latihan</div>
         </div>
         <div class="card staff">
-            <div class="staff-top"><span>No. Staf 08</span><span class="staff-status">Sedia</span></div>
+            <div class="staff-top"><span data-i18n="staff-08">No. Staf 08</span><span class="staff-status" data-i18n="status-ready">Sedia</span></div>
             <div class="staff-name">Adila</div>
-            <div class="staff-role">Operasi</div>
+            <div class="staff-role" data-i18n="role-adila">Operasi</div>
         </div>
     </div>
 
     <!-- Buku log aktiviti -->
     <div class="section-head">
-        <h2 class="card-title">Buku Log Aktiviti</h2>
+        <h2 class="card-title" data-i18n="buku-log">Buku Log Aktiviti</h2>
         <span class="rule"></span>
-        <span class="card-note">Kemas kini setiap 10 saat</span>
+        <span class="card-note" data-i18n="log-update">Kemas kini setiap 10 saat</span>
     </div>
     <section class="card ledger-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Masa</th>
-                    <th>Ejen</th>
-                    <th>Enjin</th>
-                    <th>Status</th>
-                    <th class="t-right">Kelajuan</th>
+                    <th data-i18n="th-time">Masa</th>
+                    <th data-i18n="th-agent">Ejen</th>
+                    <th data-i18n="th-engine">Enjin</th>
+                    <th data-i18n="th-status">Status</th>
+                    <th class="t-right" data-i18n="th-speed">Kelajuan</th>
                 </tr>
             </thead>
             <tbody id="historyBody"></tbody>
@@ -180,8 +182,8 @@
     </section>
 
     <footer>
-        <span>InfinityAI Solutions — Dokumen Dalaman</span>
-        <span>Dikuasakan oleh 8 Ejen AI</span>
+        <span data-i18n="footer-doc">InfinityAI Solutions — Dokumen Dalaman</span>
+        <span data-i18n="footer-power">Dikuasakan oleh 8 Ejen AI</span>
     </footer>
 </div>
 
@@ -189,6 +191,7 @@
 <script src="js/api.js"></script>
 <script src="js/logger.js"></script>
 <script src="js/history.js"></script>
+<script src="js/translations.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/auth.js"></script>
 <!-- Main entry point (last) -->

@@ -68,6 +68,21 @@ async def api_logout(response: Response, session_token: str | None = Cookie(None
     return {"status": "success"}
 
 
+@router.get("/api/me")
+async def api_me(session_token: str | None = Cookie(None)):
+    """Get currently logged-in user profile if session is valid"""
+    if not verify_session(session_token):
+        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
+    return {
+        "status": "success",
+        "user": {
+            "email": ADMIN_EMAIL,
+            "name": "Bos"
+        }
+    }
+
+
+
 @router.get("/api/history")
 async def history(session_token: str | None = Cookie(None)):
     """Return execution history log if authenticated"""
