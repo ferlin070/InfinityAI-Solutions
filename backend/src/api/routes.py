@@ -19,7 +19,11 @@ login_attempts = {} # { ip: [timestamp1, timestamp2, ...] }
 def get_client_ip(request: Request) -> str:
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+        # Extract the last element in the chain to prevent client-side header spoofing
+        client_ip = forwarded_for.split(",")[-1].strip()
+        from src.core.config import logger
+        logger.info(f"Raw X-Forwarded-For: {forwarded_for} -> Resolved Client IP: {client_ip}")
+        return client_ip
     real_ip = request.headers.get("x-real-ip")
     if real_ip:
         return real_ip.strip()
