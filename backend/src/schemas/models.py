@@ -31,3 +31,9 @@ class ExecuteResponse(BaseModel):
     total_speed: Optional[str] = None
     model: str
     message: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+

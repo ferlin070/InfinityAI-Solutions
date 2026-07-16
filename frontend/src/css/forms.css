@@ -1,22 +1,4 @@
-/* ============ Kad asas & kepala seksyen ============ */
-.card {
-    background: var(--card);
-    border: 1px solid var(--rule); border-radius: 3px;
-    box-shadow: 0 1px 0 rgba(29, 42, 50, .05);
-}
-
-.card-head {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 13px 20px; border-bottom: 1px solid var(--rule);
-}
-
-.card-title {
-    font-family: 'IBM Plex Sans Condensed', sans-serif;
-    font-size: 13px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: .15em;
-}
-
-.card-note { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ink-faint); }
+/* ============ Kepala seksyen ============ */
 
 .section-head { display: flex; align-items: baseline; gap: 14px; margin: 44px 0 14px; }
 .section-head .card-title { flex-shrink: 0; }
@@ -61,18 +43,4 @@ textarea {
 textarea::placeholder { color: var(--ink-faint); }
 textarea:focus { border-color: var(--ink); outline: none; box-shadow: 0 0 0 1px var(--ink); }
 
-.btn-stamp {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%; margin-top: 16px; padding: 14px;
-    font-family: 'IBM Plex Sans Condensed', sans-serif;
-    font-size: 14px; font-weight: 700;
-    letter-spacing: .18em; text-transform: uppercase;
-    color: #F7F6F2; background: var(--ink);
-    border: 1px solid var(--ink); border-radius: 2px;
-    cursor: pointer;
-    transition: background .15s ease, transform .05s ease;
-}
-
-.btn-stamp:hover:not(:disabled) { background: #2B3D47; }
-.btn-stamp:active:not(:disabled) { transform: translateY(1px); }
-.btn-stamp:disabled { opacity: .55; cursor: default; }
+/* .btn-stamp styles moved to components.css */

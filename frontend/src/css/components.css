@@ -1,0 +1,102 @@
+/*
+ * =========================================================================
+ * COMPONENT LIBRARY — "Dokumen Pejabat" Design System
+ * =========================================================================
+ */
+
+/*
+ * Component: .card
+ * Description: Bekas asas (container) yang mempunyai latar belakang `--card` (kertas cerah)
+ *              dengan sempadan `1px solid var(--rule)` dan border-radius maksimum 3px.
+ * Contoh:
+ * <section class="card">
+ *     <div class="card-head">
+ *         <h2 class="card-title">Tajuk Kad</h2>
+ *         <span class="card-note">Nota Kad</span>
+ *     </div>
+ *     ...
+ * </section>
+ */
+.card {
+    background: var(--card);
+    border: 1px solid var(--rule); border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(29, 42, 50, .05);
+}
+
+.card-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 13px 20px; border-bottom: 1px solid var(--rule);
+}
+
+.card-title {
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .15em;
+}
+
+.card-note { 
+    font-family: 'IBM Plex Mono', monospace; 
+    font-size: 10px; 
+    color: var(--ink-faint); 
+}
+
+/*
+ * Component: .btn-stamp
+ * Description: Butang tindakan utama berbentuk blok dakwat padat. Menggunakan huruf besar,
+ *              condensed caps, dan efek active translateY(1px).
+ * Contoh:
+ * <button class="btn-stamp">Hantar Arahan</button>
+ */
+.btn-stamp {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; margin-top: 16px; padding: 14px;
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 14px; font-weight: 700;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: #F7F6F2; background: var(--ink);
+    border: 1px solid var(--ink); border-radius: 2px;
+    cursor: pointer;
+    transition: background .15s ease, transform .05s ease;
+}
+
+.btn-stamp:hover:not(:disabled) { 
+    background: #2B3D47; 
+}
+.btn-stamp:active:not(:disabled) { 
+    transform: translateY(1px); 
+}
+.btn-stamp:disabled { 
+    opacity: .55; 
+    cursor: default; 
+}
+
+/*
+ * Component: .cop
+ * Description: Badge "cop getah" merah (aksen tunggal) dengan sempadan 2px dan 
+ *              putaran sedikit (-1.2deg).
+ * Contoh:
+ * <span class="cop">Minit Kerja</span>
+ */
+.cop {
+    display: inline-block; max-width: 75%;
+    font-family: 'IBM Plex Sans Condensed', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--stamp); border: 2px solid var(--stamp);
+    border-radius: 2px; padding: 4px 10px;
+    transform: rotate(-1.2deg);
+}
+
+/*
+ * Component: .chip
+ * Description: Label status bertaraf monospaced yang kompak dengan latar warna `--green-soft`
+ *              dan teks `--green`.
+ * Contoh:
+ * <span class="chip">Success</span>
+ */
+.chip {
+    display: inline-block; padding: 2px 9px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 500;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--green); background: var(--green-soft); border-radius: 2px;
+}

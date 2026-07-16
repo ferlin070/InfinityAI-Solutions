@@ -12,6 +12,20 @@
     --green-soft: #E0EAE2;
 }
 
+html[data-theme="dark"] {
+    --paper:      #1E2522;
+    --card:       #131715;
+    --ink:        #E4ECE8;
+    --ink-soft:   #9AB0A6;
+    --ink-faint:  #6B7F76;
+    --rule:       #3D4C46;
+    --rule-soft:  #2C3833;
+    --stamp:      #D44A3A;
+    --green:      #4EB07F;
+    --green-soft: #1B3327;
+}
+
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {

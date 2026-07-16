@@ -19,6 +19,31 @@ sendBtn.addEventListener('click', () => {
     executeTask(userPrompt, modelSelect, terminal, resultBox, sendBtn);
 });
 
+// Theme toggle logic (stored in memory)
+const themeToggle = document.getElementById('themeToggle');
+let isDarkMode = false;
+
+themeToggle.addEventListener('click', () => {
+    isDarkMode = !isDarkMode;
+    if (isDarkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeToggle.textContent = 'Mod Siang';
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        themeToggle.textContent = 'Mod Malam';
+    }
+});
+
+// Logout logic
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        handleLogout();
+    });
+}
+
+
+
 // Initialize history
 updateHistory(historyBody);
 

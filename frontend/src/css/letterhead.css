@@ -39,3 +39,22 @@ h1 {
 }
 
 .fig-value.selesai { color: var(--green); }
+
+.btn-theme {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    padding: 4px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.1s ease, color 0.1s ease;
+}
+
+.btn-theme:hover {
+    background: var(--rule-soft);
+    color: var(--ink);
+}
+

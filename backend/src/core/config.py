@@ -32,6 +32,35 @@ FOLDER_IDS = {
     "HAKIM": os.getenv("HAKIM_DRIVE_FOLDER_ID")
 }
 
+def get_frontend_dir():
+    # Check current working dir
+    if os.path.exists("frontend/src"):
+        return os.path.abspath("frontend/src")
+    if os.path.exists("../frontend/src"):
+        return os.path.abspath("../frontend/src")
+    
+    # Check relative to this file (core/config.py)
+    file_dir = os.path.dirname(os.path.abspath(__file__)) # core
+    src_dir = os.path.dirname(file_dir) # src
+    backend_dir = os.path.dirname(src_dir) # backend
+    
+    # In docker, frontend is copied directly to WORKDIR/frontend
+    docker_frontend = os.path.join(backend_dir, "frontend", "src")
+    if os.path.exists(docker_frontend):
+        return docker_frontend
+        
+    # Local development where frontend is parallel to backend
+    root_dir = os.path.dirname(backend_dir)
+    local_frontend = os.path.join(root_dir, "frontend", "src")
+    if os.path.exists(local_frontend):
+        return local_frontend
+        
+    # Fallback
+    return os.path.abspath("frontend/src")
+
+FRONTEND_DIR = get_frontend_dir()
+logger.info(f"Frontend directory resolved to: {FRONTEND_DIR}")
+
 # Startup verification
 def verify_environment():
     if not NVIDIA_API_KEY:
@@ -42,3 +71,4 @@ def verify_environment():
     for agent_name, folder_id in FOLDER_IDS.items():
         if not folder_id:
             logger.warning(f"Google Drive folder ID untuk ejen '{agent_name}' tidak dijumpai dalam fail .env.")
+
