@@ -22,7 +22,7 @@ GAS_URL = os.getenv("GAS_WEB_APP_URL")
 LOG_FILE = "daily_log.json"
 
 # Environment & Admin Credentials Configuration
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
