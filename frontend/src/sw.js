@@ -47,12 +47,23 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Only intercept GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   const url = new URL(event.request.url);
   
   // Bypass API requests to prevent polling and dynamic state corruption
   if (url.pathname.startsWith('/api/')) {
     return;
   }
+  
+  // Bypass navigation requests to allow server-side redirects to work correctly
+  if (event.request.mode === 'navigate') {
+    return;
+  }
+
   
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
