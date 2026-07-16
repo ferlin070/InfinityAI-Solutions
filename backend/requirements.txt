@@ -1,6 +1,7 @@
 fastapi==0.136.1
 uvicorn==0.46.0
 openai==2.36.0
+crewai==0.203.2
 requests==2.33.1
 python-dotenv==1.2.2
 pydantic==2.13.4

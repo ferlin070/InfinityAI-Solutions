@@ -58,10 +58,9 @@ Rujuk [backend/README.md](backend/README.md) untuk setup terperinci.
 │   ├── frontend/                    # Design system
 │   ├── development/                 # Audit reports
 │   └── archive/                     # Dokumen lama
-├── docker-compose.yml               # Multi-service orchestration
+├── docker-compose.yml               # Local dev orchestration (bukan untuk Railway/Render)
 ├── .env.example                     # Environment template
-├── Dockerfile                       # Root Dockerfile (deprecated — use backend/Dockerfile)
-└── .github/workflows/               # Auto-sync ke Hugging Face Spaces
+└── Dockerfile                       # Root Dockerfile (deprecated — use backend/Dockerfile)
 ```
 
 ## Struktur Baru (Monorepo)
@@ -84,4 +83,6 @@ Lihat [backend/README.md](backend/README.md) dan [frontend/README.md](frontend/R
 
 ## Deployment
 
-⚠️ **Setiap push ke `main` auto-deploy (force push) ke Hugging Face Spaces** melalui [sync_to_hf.yml](.github/workflows/sync_to_hf.yml). Pastikan perubahan telah diuji sebelum push. Secrets diisi di Settings Hugging Face Space.
+Rujuk [docs/deployment.md](docs/deployment.md) untuk panduan penuh (Railway/Render untuk backend, Vercel untuk frontend, setup Supabase, senarai environment variables).
+
+⚠️ Auto-deploy ke Hugging Face Spaces (`sync_to_hf.yml`) telah **dibuang** (commit `6c10c5a`) — push ke `main` tidak lagi deploy ke mana-mana secara automatik.

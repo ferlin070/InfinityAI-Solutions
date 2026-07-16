@@ -4,8 +4,9 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Cookie, Response,
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from src.core.config import LOG_FILE, FRONTEND_DIR
 from src.core import config
-from src.schemas.models import UserInput, UserLogin
+from src.schemas.models import ExecuteResponse, ExecutionRequest, UserInput, UserLogin
 from src.services.orchestrator import execute_task
+from src.ai.flows.task_execution_flow import TaskExecutionFlow
 from src.core.sessions import verify_session, create_session, destroy_session
 
 router = APIRouter()
@@ -136,11 +137,30 @@ async def history(session_token: str | None = Cookie(None)):
 
 @router.post("/api/execute")
 async def execute(data: UserInput, background_tasks: BackgroundTasks, session_token: str | None = Cookie(None)):
-    """Execute a task with Claudia orchestration if authenticated"""
+    """Deprecated — superseded by POST /api/executions (CrewAI + OpenAI, see
+    docs/architecture/ai-execution-crewai.md §6/§10). Kept only until Step 8's
+    acceptance test confirms behavioral parity; the dashboard no longer calls this.
+    """
     if not verify_session(session_token):
         raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
         
     return await execute_task(data, background_tasks)
+
+
+@router.post("/api/executions", response_model=ExecuteResponse)
+async def create_execution(data: ExecutionRequest, session_token: str | None = Cookie(None)):
+    """Execute a task via the CrewAI-backed AI execution layer (OpenAI provider).
+    Replaces /api/execute — see docs/architecture/ai-execution-crewai.md §6/§10.
+    `org_id` is None until the multi-tenant auth/org layer (proposal-v2.md §2)
+    exists; every execution runs against the platform-wide OpenAI key until then.
+    """
+    if not verify_session(session_token):
+        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
+
+    flow = TaskExecutionFlow()
+    return await flow.kickoff_async(
+        inputs={"prompt": data.prompt, "model": data.model, "org_id": None}
+    )
 
 
 @router.get("/manifest.json")

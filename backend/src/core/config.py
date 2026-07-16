@@ -18,6 +18,7 @@ logger = logging.getLogger("ai_command_center")
 
 # API Configuration
 NVIDIA_API_KEY = os.getenv("NVIDIA_NIM_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GAS_URL = os.getenv("GAS_WEB_APP_URL")
 LOG_FILE = "daily_log.json"
 
@@ -90,6 +91,8 @@ def verify_environment():
 
     if not NVIDIA_API_KEY:
         logger.warning("NVIDIA_NIM_API_KEY tidak dikonfigurasikan dalam fail .env! Panggilan API ke model NVIDIA akan gagal.")
+    if not OPENAI_API_KEY:
+        logger.warning("OPENAI_API_KEY tidak dikonfigurasikan dalam fail .env! Panggilan AI execution layer (CrewAI) akan gagal.")
     if not GAS_URL:
         logger.warning("GAS_WEB_APP_URL tidak dikonfigurasikan dalam fail .env! Sistem tidak dapat memuat naik hasil kerja ke Google Drive.")
 

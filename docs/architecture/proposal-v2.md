@@ -159,6 +159,8 @@ Worker/gateway guna `service_role` key (server-side sahaja) dan **wajib** filter
 
 ## 4. Senibina AI Orchestration
 
+> **Digantikan.** Reka bentuk orkestrator custom + provider NVIDIA NIM/Kimi di bawah ini telah digantikan oleh [ai-execution-crewai.md](ai-execution-crewai.md), yang menggunakan CrewAI sebagai orchestration framework dan OpenAI sebagai satu-satunya provider untuk MVP (di sebalik lapisan abstraksi provider-agnostic). Guardrails §4 di bawah (harga dari DB sahaja, human-in-the-loop, audit_logs, budget guard) kekal terpakai — dibawa terus ke dokumen baharu. Bahagian lain proposal ini (§1-3, §5-11: multi-tenancy, RLS, auth, WhatsApp gateway, billing) kekal sah sepenuhnya.
+
 ### Lapisan abstraksi provider
 
 ```
@@ -243,11 +245,13 @@ InfinityAI-Solutions/
 │   ├── services/               # Logik bisnes — TIADA HTTP, TIADA SQL mentah
 │   │   ├── inbound.py          # proses mesej masuk (dipanggil worker)
 │   │   ├── lead_scoring.py, quotation.py (+ jana PDF), briefing.py
-│   ├── ai/
-│   │   ├── orchestrator.py     # Claudia: routing tugasan ke agent
-│   │   ├── registry.py         # muat agents dari DB (default + override org)
-│   │   ├── providers/          # base, nvidia, openai_compat
-│   │   └── prompts/            # prompt templates (dipindah dari main.py lama)
+│   ├── ai/                     # CrewAI + provider layer — rujuk ai-execution-crewai.md §2
+│   │   ├── providers/          # base (LLMProvider ABC), openai_provider, registry, errors
+│   │   ├── crewai_adapter/     # InfinityLLMAdapter(BaseLLM), callbacks -> agent_runs
+│   │   ├── agents/              # registry + factory: DB row -> crewai.Agent
+│   │   ├── flows/               # TaskExecutionFlow (gantikan orchestrator.py lama)
+│   │   ├── tools/               # crewai @tool (future: product/pricing lookup)
+│   │   └── prompts/            # resolusi system_prompt: default vs override org
 │   ├── channels/               # base, wa_webjs, wa_cloud
 │   ├── db/                     # supabase client + repositories/ (satu-satunya lapisan sentuh DB)
 │   └── workers/

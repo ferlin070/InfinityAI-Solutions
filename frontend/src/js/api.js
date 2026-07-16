@@ -1,10 +1,10 @@
 // API Client utilities
 
 async function fetchExecute(prompt, modelName) {
-    const response = await fetch('/api/execute', {
+    const response = await fetch('/api/executions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model_name: modelName })
+        body: JSON.stringify({ prompt, model: modelName })
     });
     if (response.status === 401) {
         window.location.href = '/login';

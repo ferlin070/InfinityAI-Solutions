@@ -18,5 +18,7 @@ COPY --chown=user . /app
 # Salin frontend files
 COPY --chown=user ../frontend /app/frontend
 
-# Hugging Face Spaces menggunakan port 7860
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Port 7860 default (Hugging Face Spaces convention); Railway/Render inject their
+# own $PORT at runtime, which this must respect — shell form (not exec form) is
+# required so ${PORT:-7860} actually expands.
+CMD uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-7860}

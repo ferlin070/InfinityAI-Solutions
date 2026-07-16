@@ -37,3 +37,13 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
+
+class ExecutionRequest(BaseModel):
+    """Request body for the CrewAI-backed /api/executions endpoint (OpenAI-only
+    MVP) — see docs/architecture/ai-execution-crewai.md §6. Distinct from
+    UserInput (legacy /api/execute) since `model` here must be an OpenAI model id,
+    not one of the NVIDIA-hosted MODEL_OPTIONS."""
+
+    prompt: str
+    model: str = "gpt-4o-mini"
+
