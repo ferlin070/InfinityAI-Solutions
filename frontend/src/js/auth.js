@@ -63,3 +63,39 @@ async function handleLogout() {
         window.location.href = '/login'; // fallback redirection
     }
 }
+
+// Network status handling for Login Page
+function checkNetworkStatus() {
+    const offlineMessage = document.getElementById('offlineMessage');
+    if (!offlineMessage) return; // Only run on login page
+    
+    if (!navigator.onLine) {
+        offlineMessage.classList.remove('hidden');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            if (!submitBtn.getAttribute('data-original-content')) {
+                submitBtn.setAttribute('data-original-content', submitBtn.innerHTML);
+            }
+            submitBtn.innerHTML = '<span>Hubungan Terputus</span>';
+        }
+    } else {
+        offlineMessage.classList.add('hidden');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            const originalContent = submitBtn.getAttribute('data-original-content');
+            if (originalContent) {
+                submitBtn.innerHTML = originalContent;
+                submitBtn.removeAttribute('data-original-content');
+            } else {
+                submitBtn.innerHTML = '<span>Log Masuk ke Pejabat</span>';
+            }
+        }
+    }
+}
+
+if (loginForm) {
+    window.addEventListener('online', checkNetworkStatus);
+    window.addEventListener('offline', checkNetworkStatus);
+    checkNetworkStatus();
+}
+

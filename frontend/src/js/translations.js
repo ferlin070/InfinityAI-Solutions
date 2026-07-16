@@ -61,7 +61,10 @@ const translations = {
         "analyzing-tasks": "Claudia is analyzing tasks...",
         "agent-done": "Agent {agent} has completed the task.",
         "claudia-rejected": "Claudia rejected the task: {message}",
-        "connection-lost": "Connection to server lost. Try sending again."
+        "connection-lost": "Connection to server lost. Try sending again.",
+        "status-offline": "DISCONNECTED / OFFLINE",
+        "btn-offline": "Offline / Disconnected",
+        "login-offline": "Disconnected. Cannot authenticate."
     }
 };
 
@@ -97,7 +100,10 @@ const msFallback = {
     "claudia-rejected": "Claudia menolak tugasan: {message}",
     "connection-lost": "Sambungan ke pelayan terputus. Cuba hantar semula.",
     "btn-send": "Hantar Arahan ke Claudia",
-    "btn-sending": "Claudia sedang delegasi…"
+    "btn-sending": "Claudia sedang delegasi…",
+    "status-offline": "SAMBUNGAN TERPUTUS / OFFLINE",
+    "btn-offline": "Tiada Talian / Offline",
+    "login-offline": "Rangkaian Terputus. Log masuk tidak dapat disahkan."
 };
 
 function t(key, replacements = {}) {

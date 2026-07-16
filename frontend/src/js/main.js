@@ -55,6 +55,7 @@ if (langToggle) {
             langToggle.textContent = 'EN';
         }
         updateDate();
+        updateNetworkStatus();
     });
 }
 
@@ -97,10 +98,53 @@ async function loadUserProfile() {
     }
 }
 
-// Initialize history and profile
+// Network status monitoring and handling
+function updateNetworkStatus() {
+    const offlineBadge = document.getElementById('offlineBadge');
+    if (!navigator.onLine) {
+        if (offlineBadge) {
+            offlineBadge.classList.remove('hidden');
+        }
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            if (!sendBtn.getAttribute('data-original-content')) {
+                sendBtn.setAttribute('data-original-content', sendBtn.innerHTML);
+            }
+            sendBtn.innerHTML = `<span>${t('btn-offline')}</span>`;
+        }
+    } else {
+        if (offlineBadge) {
+            offlineBadge.classList.add('hidden');
+        }
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            const originalContent = sendBtn.getAttribute('data-original-content');
+            if (originalContent) {
+                sendBtn.innerHTML = originalContent;
+                sendBtn.removeAttribute('data-original-content');
+            } else {
+                sendBtn.innerHTML = `<span>${t('btn-send')}</span>`;
+            }
+        }
+        
+        // Refresh logs and profile when connection is back
+        loadUserProfile();
+        updateHistory(historyBody);
+    }
+}
+
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+
+// Initialize history, profile, and network status check
+updateNetworkStatus();
 loadUserProfile();
 updateHistory(historyBody);
 
 // Update history every 10 seconds
-setInterval(() => updateHistory(historyBody), 10000);
+setInterval(() => {
+    if (navigator.onLine) {
+        updateHistory(historyBody);
+    }
+}, 10000);
 
