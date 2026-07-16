@@ -15,7 +15,8 @@ This has two consequences for this guide:
 
 There is also a stale, already-removed auto-deploy pipeline: `.github/workflows/sync_to_hf.yml` (Hugging Face Spaces auto-deploy) was deleted in commit `6c10c5a`. `README.md` still references it in places — treat this document as authoritative over that until README is fully cleaned up.
 
-Also note: **`Dockerfile` at the repo root is deprecated** (pre-refactor leftover, points at a `main.py` that no longer matches the current module layout). Always point Railway/Render at **`backend/Dockerfile`**, with build context/root directory set to `backend/`.
+Also note: the root `Dockerfile` is configured to build the entire monolith (backend + frontend) using the repository root as the build context. This is the recommended path for Railway.
+
 
 ---
 
@@ -46,17 +47,18 @@ Copy `.env.example` → `.env` locally and fill in real values. `.env` is gitign
 
 ## 3. Backend deployment (the simple, working-today path)
 
-Pick **one** of Railway or Render — both work the same way (build from `backend/Dockerfile`).
+Pick **one** of Railway or Render — both work the same way (build from the monolith Dockerfile).
 
 ### Option A: Railway
 
 1. New Project → Deploy from GitHub repo → select this repo.
-2. Settings → set **Root Directory** to `backend`.
-3. Railway auto-detects `backend/Dockerfile`. If it offers a Nixpacks/buildpack option instead, force Dockerfile builds explicitly (Settings → Build → Builder → Dockerfile).
-4. Variables tab → add every "Required" row from §2 (`ENVIRONMENT=production`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `OPENAI_API_KEY`, `CREWAI_TESTING=true`).
-5. Railway injects `PORT` automatically — the fixed Dockerfile CMD now reads it, no action needed.
-6. Deploy. Railway gives you a `*.up.railway.app` URL — the dashboard, login page, and `/api/executions` are all served from that one URL.
+2. Settings → keep **Root Directory** as `/` (default). Railway will auto-detect the root `Dockerfile` and build context.
+3. If it offers a Nixpacks/buildpack option instead, force Dockerfile builds explicitly (Settings → Build → Builder → Dockerfile).
+4. Variables tab → add every "Required" row from §2 (`ENVIRONMENT=production`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `OPENAI_API_KEY`, `CREWAI_TESTING=true`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
+5. Railway injects `PORT` automatically — the Dockerfile CMD respects it, no action needed.
+6. Deploy. Railway gives you a `*.up.railway.app` URL.
 7. (Optional) Add a custom domain under Settings → Networking.
+
 
 ### Option B: Render
 

@@ -22,6 +22,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GAS_URL = os.getenv("GAS_WEB_APP_URL")
 LOG_FILE = "daily_log.json"
 
+# Supabase Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+
 # Environment & Admin Credentials Configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
@@ -88,6 +93,17 @@ def verify_environment():
             logger.warning("ADMIN_EMAIL tidak diset di .env. Menggunakan fallback: bos@infinityai.com")
         if not os.getenv("ADMIN_PASSWORD"):
             logger.warning("ADMIN_PASSWORD tidak diset di .env. Menggunakan fallback: password123")
+
+    # Supabase validation (fail-open-by-design)
+    if (SUPABASE_URL and not SUPABASE_SERVICE_ROLE_KEY) or (not SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        raise RuntimeError(
+            "Konfigurasi Supabase tidak lengkap! Kedua-dua SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY "
+            "mesti diset bersama-sama di .env, atau kedua-duanya dikosongkan."
+        )
+    elif not SUPABASE_URL and not SUPABASE_SERVICE_ROLE_KEY:
+        logger.warning("Supabase tidak dikonfigurasikan (SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY kosong). Aplikasi berjalan tanpa integrasi pangkalan data (fail-open).")
+    else:
+        logger.info("Supabase dikonfigurasikan: SUPABASE_URL diset, SUPABASE_SERVICE_ROLE_KEY diset.")
 
     if not NVIDIA_API_KEY:
         logger.warning("NVIDIA_NIM_API_KEY tidak dikonfigurasikan dalam fail .env! Panggilan API ke model NVIDIA akan gagal.")
