@@ -202,6 +202,64 @@ def test_on_event_reports_status_and_agent_lifecycle():
     assert ("agent_done", {"agent": "ZARA"}) in events
 
 
+def test_danish_actually_generates_an_image_end_to_end():
+    """Regression test for the exact bug seen live in production: Danish had
+    the Image Generation tool attached, but CrewAI's executor never passes
+    `tools`/`available_functions` to InfinityLLMAdapter.call() (see
+    llm_adapter.py's `_build_tool_schema` fix) — so the tool was never invoked
+    and Danish just wrote banner *copy* text instead of generating an image.
+    Drives the real CrewAI Agent/Task/Crew/Flow machinery end-to-end (only the
+    OpenAI provider and the image tool's OpenAI client are mocked), so this
+    would have caught that bug."""
+    from unittest.mock import MagicMock
+    claudia_json = '{"status": "accepted", "assignments": [{"agent": "DANISH", "task": "buat banner goreng pisang cheese"}]}'
+
+    class ToolCallingProvider:
+        def __init__(self):
+            self.call_count = 0
+
+        def complete(self, messages, model, temperature=0.7, max_tokens=4096, tools=None):
+            self.call_count += 1
+            if self.call_count == 1:
+                return LLMResult(
+                    text=claudia_json, tokens_in=10, tokens_out=5, cost_usd=0.001,
+                    duration_ms=100, model=model, provider="openai",
+                )
+            if self.call_count == 2:
+                assert tools, "Danish's tools must have been auto-built and offered to the model"
+                tool_name = tools[0]["function"]["name"]
+                return LLMResult(
+                    text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+                    model=model, provider="openai",
+                    tool_calls=[{
+                        "id": "call_1",
+                        "function": {"name": tool_name, "arguments": '{"prompt": "banner goreng pisang cheese"}'},
+                    }],
+                )
+            return LLMResult(
+                text="Ini banner untuk goreng pisang cheese anda!", tokens_in=10, tokens_out=5,
+                cost_usd=0.001, duration_ms=100, model=model, provider="openai",
+            )
+
+    fake_openai_client = MagicMock()
+    fake_resp = MagicMock()
+    fake_resp.data = [MagicMock(b64_json="ZmFrZWltYWdl")]
+    fake_openai_client.images.generate.return_value = fake_resp
+
+    with patch("src.ai.tools.image_generation.OpenAI", return_value=fake_openai_client):
+        response = _run_flow(ToolCallingProvider(), prompt="buat banner goreng pisang cheese")
+
+    assert response.status == "success"
+    result = response.results[0]
+    assert result.agent == "DANISH"
+    assert result.artifacts == [{
+        "type": "image",
+        "mime_type": "image/png",
+        "data_base64": "ZmFrZWltYWdl",
+        "caption": "banner goreng pisang cheese",
+    }]
+
+
 def test_on_event_not_fired_for_specialists_when_task_rejected():
     claudia_json = '{"status": "rejected", "reason": "Di luar bidang."}'
     provider = ScriptedProvider(scripted_texts=[claudia_json])

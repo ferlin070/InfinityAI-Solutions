@@ -17,10 +17,13 @@ def test_unauthenticated_redirect():
     assert response.headers["location"] == "/login"
 
 def test_login_page_serves():
-    # Login page should serve 200 OK
+    # Login page should serve 200 OK. It's a React SPA shell now (auth is
+    # decided client-side, not server-rendered) — /login and / serve
+    # byte-identical HTML, so this only checks the shell renders, not
+    # page-specific text (a prior hidden-div hack for that was removed).
     response = client.get("/login")
     assert response.status_code == 200
-    assert "Borang Daftar Masuk" in response.text
+    assert '<div id="root">' in response.text
 
 def test_api_login_incorrect():
     # Incorrect credentials should return 401
@@ -38,10 +41,11 @@ def test_api_login_correct_and_session_access():
     session_cookie = login_response.cookies.get("session_token")
     assert session_cookie is not None
     
-    # Access dashboard with cookie should succeed
+    # Access dashboard with cookie should succeed (React SPA shell — see
+    # test_login_page_serves for why this doesn't check page-specific text)
     dashboard_response = client.get("/", cookies={"session_token": session_cookie})
     assert dashboard_response.status_code == 200
-    assert "Pejabat Operasi Harian" in dashboard_response.text
+    assert '<div id="root">' in dashboard_response.text
 
 def test_api_logout():
     # Log in first

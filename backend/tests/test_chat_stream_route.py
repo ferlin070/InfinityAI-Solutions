@@ -100,6 +100,32 @@ def test_chat_stream_reports_error_event_on_exception():
     assert events[-1][0] == "error"
 
 
+def test_chat_stream_times_out_if_background_flow_never_responds():
+    """Regression test for the production symptom: the chat spinner hangs
+    forever with no error surfaced at all. If run_flow's background thread
+    never puts anything on the queue (e.g. it's genuinely stuck on a network
+    call), the client must still get a terminal error event instead of an
+    unbounded hang."""
+    session_cookie = _login()
+
+    with patch("src.api.routes.TaskExecutionFlow") as MockFlow, \
+         patch("src.api.routes.dashboard_memory") as mock_memory, \
+         patch("src.api.routes.CHAT_STREAM_TIMEOUT_S", 0.05):
+        mock_memory.get_recent.return_value = []
+        # Never calls on_event and never returns — simulates a truly stuck call.
+        MockFlow.return_value.kickoff.side_effect = lambda inputs: __import__("time").sleep(5)
+
+        response = client.post(
+            "/api/chat/stream",
+            json={"prompt": "hai", "model": "gpt-4o-mini"},
+            cookies={"session_token": session_cookie},
+        )
+
+    events = _parse_sse(response.text)
+    assert events[-1][0] == "error"
+    assert "Masa tamat" in events[-1][1]["message"]
+
+
 def test_chat_history_requires_auth():
     # Fresh client — the shared `client` may already carry a session cookie
     # from an earlier test's _login() call (TestClient persists cookies).

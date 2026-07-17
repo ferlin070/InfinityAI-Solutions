@@ -157,25 +157,36 @@ export default function Settings({ t }) {
             </h4>
             <div className="space-y-2">
               {channels.length > 0 ? (
-                channels.map((ch) => (
-                  <div key={ch.id} className="flex items-center justify-between p-3 rounded bg-card-border/20 border border-card-border/30">
-                    <div className="flex items-center space-x-3">
-                      <Smartphone className="w-4 h-4 text-text-muted" />
-                      <div className="text-xs">
-                        <p className="font-semibold">{ch.phone_number}</p>
-                        <span className="text-[10px] text-accent-green font-medium flex items-center mt-0.5">
-                          <Wifi className="w-3 h-3 mr-0.5" /> Connected & Active
-                        </span>
+                channels.map((ch) => {
+                  // ch.status must drive this badge, not a hardcoded string —
+                  // a channel row existing in the DB does not mean the
+                  // WhatsApp gateway ever actually connected it.
+                  const statusMeta = {
+                    connected: { icon: Wifi, color: 'text-accent-green', label: 'Connected & Active' },
+                    pending_qr: { icon: HelpCircle, color: 'text-accent-purple', label: 'Menunggu imbasan QR' },
+                    disconnected: { icon: WifiOff, color: 'text-accent-red', label: 'Terputus' },
+                  }[ch.status] || { icon: WifiOff, color: 'text-text-muted', label: ch.status || 'Unknown' };
+                  const StatusIcon = statusMeta.icon;
+                  return (
+                    <div key={ch.id} className="flex items-center justify-between p-3 rounded bg-card-border/20 border border-card-border/30">
+                      <div className="flex items-center space-x-3">
+                        <Smartphone className="w-4 h-4 text-text-muted" />
+                        <div className="text-xs">
+                          <p className="font-semibold">{ch.phone_number}</p>
+                          <span className={`text-[10px] font-medium flex items-center mt-0.5 ${statusMeta.color}`}>
+                            <StatusIcon className="w-3 h-3 mr-0.5" /> {statusMeta.label}
+                          </span>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => handleDisconnect(ch.id)}
+                        className="text-text-muted hover:text-accent-red p-2 rounded hover:bg-card-border/30 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => handleDisconnect(ch.id)}
-                      className="text-text-muted hover:text-accent-red p-2 rounded hover:bg-card-border/30 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="p-4 text-center text-xs text-text-muted bg-card-border/10 rounded">
                   {t('wa-no-channels')}

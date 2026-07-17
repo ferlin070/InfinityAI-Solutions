@@ -2,8 +2,19 @@
 
 export async function apiGet(path) {
     const response = await fetch(path);
-    if (response.status === 401) {
-        window.location.href = '#login';
+    // /api/me is excluded: App.jsx's own verifyAuth() calls it on every mount
+    // specifically to find out whether the user is logged in — a 401 there is
+    // the expected, normal answer for a fresh/logged-out visit, not a session
+    // that needs recovering. Reloading on *that* 401 would reload → re-check
+    // → 401 again → reload again, forever, for anyone who isn't logged in.
+    if (response.status === 401 && path !== '/api/me') {
+        // App.jsx isn't hash-routed — it decides Login-vs-Dashboard purely
+        // from isAuthenticated state, checked once via verifyAuth() on mount.
+        // Setting a '#login' hash was a no-op: it never re-ran that check, so
+        // an expired session just left every page silently returning empty/
+        // null data with the user still looking "logged in". A full reload
+        // re-triggers verifyAuth() and correctly lands on the Login screen.
+        window.location.reload();
         return null;
     }
     return response.json();
@@ -16,7 +27,13 @@ export async function apiPost(path, body) {
         body: JSON.stringify(body)
     });
     if (response.status === 401) {
-        window.location.href = '#login';
+        // App.jsx isn't hash-routed — it decides Login-vs-Dashboard purely
+        // from isAuthenticated state, checked once via verifyAuth() on mount.
+        // Setting a '#login' hash was a no-op: it never re-ran that check, so
+        // an expired session just left every page silently returning empty/
+        // null data with the user still looking "logged in". A full reload
+        // re-triggers verifyAuth() and correctly lands on the Login screen.
+        window.location.reload();
         return null;
     }
     return response.json();
@@ -45,7 +62,13 @@ export async function streamChat(prompt, modelName, onEvent) {
     });
 
     if (response.status === 401) {
-        window.location.href = '#login';
+        // App.jsx isn't hash-routed — it decides Login-vs-Dashboard purely
+        // from isAuthenticated state, checked once via verifyAuth() on mount.
+        // Setting a '#login' hash was a no-op: it never re-ran that check, so
+        // an expired session just left every page silently returning empty/
+        // null data with the user still looking "logged in". A full reload
+        // re-triggers verifyAuth() and correctly lands on the Login screen.
+        window.location.reload();
         return;
     }
     if (!response.ok || !response.body) {

@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Callable
 
 from crewai.llms.base_llm import BaseLLM
@@ -11,6 +12,14 @@ ResultCallback = Callable[[str, str | None, LLMResult], None]
 EventCallback = Callable[[str, dict], None]
 
 
+def _make_tool_caller(agent_tool: Any) -> Callable[..., Any]:
+    """Bind `agent_tool` by value (not by loop variable reference) so each tool
+    built in `InfinityLLMAdapter._build_tool_schema`'s loop calls the right one."""
+    def _call(**kwargs: Any) -> Any:
+        return agent_tool.run(**kwargs)
+    return _call
+
+
 class InfinityLLMAdapter(BaseLLM):
     """The only bridge between CrewAI and our AI Provider Interface.
 
@@ -21,6 +30,16 @@ class InfinityLLMAdapter(BaseLLM):
     Supports tool/function-calling: when `available_functions` are provided and the
     LLM returns `tool_calls`, this adapter executes the functions and re-calls the
     LLM with the results — the tool loop is handled here, not by CrewAI itself.
+
+    CrewAI's own `CrewAgentExecutor` (crewai/agents/crew_agent_executor.py,
+    `get_llm_response`) never actually passes `tools`/`available_functions` to a
+    custom `BaseLLM.call()` (nor `from_agent` — only `from_task`) — it drives tool
+    use through its own ReAct-style text parsing instead (`Action: ...\\nAction
+    Input: ...`), which this adapter's OpenAI-native provider doesn't speak. So
+    when neither is supplied, `call()` builds them itself from the assigned
+    Task/Agent's `.tools` and resolves the whole tool loop internally — CrewAI's
+    executor only ever sees the final plain-text answer, which its fallback
+    parser already accepts as a valid `AgentFinish`.
     """
 
     def __init__(
@@ -56,6 +75,22 @@ class InfinityLLMAdapter(BaseLLM):
             if isinstance(messages, str)
             else messages
         )
+
+        if tools is None and available_functions is None:
+            # CrewAgentExecutor._invoke_loop only ever forwards `from_task` (never
+            # `from_agent`, despite call()'s signature accepting it) — Task carries
+            # its own `.tools` (falling back to `task.agent.tools` internally, see
+            # crewai/task.py), so that's the reliable source, with a direct
+            # `from_agent.tools` read kept as a fallback for any other call site.
+            agent_tools = None
+            if from_task is not None:
+                agent_tools = getattr(from_task, "tools", None) or getattr(
+                    getattr(from_task, "agent", None), "tools", None
+                )
+            if not agent_tools and from_agent is not None:
+                agent_tools = getattr(from_agent, "tools", None)
+            if agent_tools:
+                tools, available_functions = self._build_tool_schema(agent_tools)
 
         # Tool loop: call provider, if tool_calls returned, execute functions and repeat
         current_tools = tools
@@ -105,6 +140,37 @@ class InfinityLLMAdapter(BaseLLM):
 
             # Subsequent iterations don't resend tool definitions
             current_tools = None
+
+    @staticmethod
+    def _build_tool_schema(agent_tools: list[Any]) -> tuple[list[dict], dict[str, Callable]]:
+        """Turn a crewai Agent's `.tools` (crewai.tools.base_tool.Tool instances) into
+        an OpenAI-style `tools` schema plus a name -> callable map, so this adapter's
+        own tool loop (see `call()`) can run them the same way it would if CrewAI had
+        passed them in directly."""
+        tools_schema: list[dict] = []
+        available_functions: dict[str, Callable] = {}
+
+        for agent_tool in agent_tools:
+            # OpenAI function names must match ^[a-zA-Z0-9_-]+$ — tool display
+            # names like "Image Generation" or "Contact Info" contain spaces.
+            fn_name = re.sub(r"[^a-zA-Z0-9_-]", "_", agent_tool.name)
+            args_schema = getattr(agent_tool, "args_schema", None)
+            parameters = (
+                args_schema.model_json_schema()
+                if args_schema is not None
+                else {"type": "object", "properties": {}}
+            )
+            tools_schema.append({
+                "type": "function",
+                "function": {
+                    "name": fn_name,
+                    "description": agent_tool.description or "",
+                    "parameters": parameters,
+                },
+            })
+            available_functions[fn_name] = _make_tool_caller(agent_tool)
+
+        return tools_schema, available_functions
 
     def supports_function_calling(self) -> bool:
         return True

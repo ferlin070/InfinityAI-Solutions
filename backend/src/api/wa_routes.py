@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Cookie
 from pydantic import BaseModel
 
@@ -62,7 +64,12 @@ async def create_channel(data: CreateChannelRequest,
     provider = WAWebJSProvider()
 
     channel = repo.create(ORG_ID, data.phone_number)
-    provider.start_session(channel["id"])
+    # provider.start_session() is a blocking `requests` call — offload it so a
+    # slow/unreachable gateway (e.g. not deployed yet) can't stall the single
+    # asyncio event loop for its whole timeout, which would freeze every other
+    # request the server is handling (including unrelated /api/chat/stream
+    # SSE responses) for as long as this one blocking call is stuck.
+    await asyncio.to_thread(provider.start_session, channel["id"])
     logger.info(f"Channel created: {channel['id']} ({data.phone_number})")
     return channel
 
@@ -72,7 +79,7 @@ async def get_channel_qr(channel_id: str,
                          session_token: str | None = Cookie(None)):
     require_session(session_token)
     provider = WAWebJSProvider()
-    return provider.get_qr(channel_id)
+    return await asyncio.to_thread(provider.get_qr, channel_id)
 
 
 @router.get("/api/channels/{channel_id}/status")
@@ -82,7 +89,7 @@ async def get_channel_status(channel_id: str,
     repo = ChannelRepo()
     provider = WAWebJSProvider()
 
-    gateway_status = provider.get_session_status(channel_id)
+    gateway_status = await asyncio.to_thread(provider.get_session_status, channel_id)
     repo.update_status(ORG_ID, channel_id, gateway_status)
     return {"channel_id": channel_id, "status": gateway_status}
 
@@ -94,7 +101,7 @@ async def delete_channel(channel_id: str,
     require_session(session_token)
     repo = ChannelRepo()
     provider = WAWebJSProvider()
-    provider.destroy_session(channel_id)
+    await asyncio.to_thread(provider.destroy_session, channel_id)
     repo.delete(ORG_ID, channel_id)
     logger.info(f"Channel deleted: {channel_id}")
     return {"status": "deleted"}
@@ -152,7 +159,7 @@ async def send_message(conv_id: str, data: SendMessageRequest,
     )
 
     channel = WAWebJSProvider()
-    channel.send_text(data.channel_id, data.to, data.body)
+    await asyncio.to_thread(channel.send_text, data.channel_id, data.to, data.body)
 
     return {"status": "sent"}
 

@@ -14,6 +14,10 @@ from src.services import dashboard_memory
 
 router = APIRouter()
 
+# Bounds how long an /api/chat/stream client waits with zero events before
+# giving up — see chat_stream() below. Module-level so tests can tune it down.
+CHAT_STREAM_TIMEOUT_S = 180
+
 # Rate limiter configuration & helper functions
 from datetime import datetime, timedelta
 import hmac
@@ -207,13 +211,37 @@ async def chat_stream(data: ExecutionRequest, session_token: str | None = Cookie
     async def event_gen():
         loop = asyncio.get_event_loop()
         while True:
-            item = await loop.run_in_executor(None, event_q.get)
+            try:
+                # A stuck OpenAI/gateway call in run_flow's background thread would
+                # otherwise hang the SSE response (and the UI's spinner) forever
+                # with no feedback, since that thread can't be safely cancelled
+                # from here — this only bounds what the *client* waits for; the
+                # background thread itself is left to finish or fail on its own.
+                item = await asyncio.wait_for(
+                    loop.run_in_executor(None, event_q.get), timeout=CHAT_STREAM_TIMEOUT_S
+                )
+            except asyncio.TimeoutError:
+                logger.error("Chat stream timed out waiting for a response.")
+                yield _sse_frame("error", {"message": "Masa tamat menunggu balasan. Sila cuba lagi."})
+                break
             if item is None:
                 break
             event_type, payload = item
             yield _sse_frame(event_type, payload)
 
-    return StreamingResponse(event_gen(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            # Without these, some reverse proxies (Railway's edge included, per
+            # observed production behavior) buffer the whole response instead of
+            # forwarding chunks as they're yielded — the client then sees nothing
+            # until the entire stream finishes, indistinguishable from a hang.
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/api/chat/history")
