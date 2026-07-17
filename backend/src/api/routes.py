@@ -63,7 +63,7 @@ async def login_page(session_token: str | None = Cookie(None)):
     if verify_session(session_token):
         return RedirectResponse(url="/", status_code=303)
         
-    with open(os.path.join(FRONTEND_DIR, "login.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(FRONTEND_DIR, "index.html"), "r", encoding="utf-8") as f:
         return f.read()
 
 
