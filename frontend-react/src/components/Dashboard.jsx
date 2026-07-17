@@ -86,26 +86,33 @@ export default function Dashboard({ t, lang }) {
     }
   ];
 
+  // A channel row existing in the DB only means "Sambung Nombor Baru" was
+  // clicked — it does NOT mean the WhatsApp gateway ever actually connected
+  // it (that only happens after the QR scan succeeds). Only ch.status ===
+  // 'connected' means the number is actually live; counting all rows here
+  // previously showed "Connected" even when nothing had ever scanned a QR.
+  const connectedChannels = channels.filter((ch) => ch.status === 'connected');
+
   return (
     <div className="space-y-6">
       {/* WhatsApp Connection Indicator */}
       <div className="glass-panel p-4 flex items-center justify-between glow-purple">
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <div className={`w-3 h-3 rounded-full ${channels.length > 0 ? 'bg-accent-green pulse-green' : 'bg-accent-red'}`} />
+            <div className={`w-3 h-3 rounded-full ${connectedChannels.length > 0 ? 'bg-accent-green pulse-green' : 'bg-accent-red'}`} />
           </div>
           <div>
             <h4 className="text-sm font-semibold">WhatsApp AI Gateway</h4>
             <p className="text-xs text-text-muted">
-              {channels.length > 0 
-                ? `${channels.length} ${t('wa-phone-placeholder')} connected` 
+              {connectedChannels.length > 0
+                ? `${connectedChannels.length} nombor disambungkan`
                 : t('wa-no-channels')
               }
             </p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {channels.length > 0 ? (
+          {connectedChannels.length > 0 ? (
             <span className="flex items-center text-xs text-accent-green bg-accent-green/10 px-2.5 py-1 rounded-full font-medium">
               <Wifi className="w-3.5 h-3.5 mr-1" /> Connected
             </span>
