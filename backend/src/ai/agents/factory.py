@@ -22,6 +22,10 @@ def build_crewai_agent(
     `allow_delegation=False` on every agent, including Claudia — delegation is our
     Flow's routing step (§3.2/§5.1), never CrewAI's own manager-agent delegation.
     """
+    if on_result is None:
+        from src.ai.crewai_adapter.callbacks import structured_log_callback
+        on_result = structured_log_callback
+
     if llm is None:
         provider = resolve_provider(config.provider, config.org_id)
         llm = InfinityLLMAdapter(

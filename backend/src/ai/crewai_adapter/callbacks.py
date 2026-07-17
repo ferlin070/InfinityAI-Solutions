@@ -24,6 +24,18 @@ def structured_log_callback(agent_key: str, org_id: str | None, result: LLMResul
             "duration_ms": result["duration_ms"],
         },
     )
+    try:
+        from src.services.logging import add_json_log
+        agent_name = agent_key.capitalize()
+        duration_sec = (result.get("duration_ms") or 0.0) / 1000.0
+        add_json_log(
+            agent=agent_name,
+            model=result.get("model", "unknown"),
+            status="Success",
+            duration=duration_sec
+        )
+    except Exception:
+        logger.exception("Failed to write daily activity JSON log")
 
 
 def chain(*callbacks: ResultCallback) -> ResultCallback:
