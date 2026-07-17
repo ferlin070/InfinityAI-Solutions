@@ -58,7 +58,8 @@ create table if not exists conversations (
 create table if not exists messages (
     id              uuid primary key default gen_random_uuid(),
     org_id          uuid not null references organizations(id) on delete cascade,
-    conversation_id uuid not null references conversations(id) on delete cascade,
+    conversation_id uuid references conversations(id) on delete cascade,
+    channel_id      uuid not null references channels(id) on delete cascade,
     direction       text not null check (direction in ('inbound', 'outbound')),
     sender          text not null check (sender in ('customer', 'ai', 'staff')),
     body            text,

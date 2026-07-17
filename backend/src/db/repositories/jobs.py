@@ -21,7 +21,7 @@ class JobRepo:
     def claim_next(self) -> Optional[dict]:
         now = datetime.now(timezone.utc).isoformat()
         result = (
-            self._db.rpc("claim_job", {"current_time": now})
+            self._db.rpc("claim_job", {"p_current_time": now})
             .execute()
         )
         return result.data[0] if result.data else None

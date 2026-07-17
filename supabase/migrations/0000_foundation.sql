@@ -16,8 +16,8 @@ create table if not exists organizations (
     id          uuid primary key default gen_random_uuid(),
     name        text not null,
     slug        text not null unique,
-    plan        text not null default 'free'
-                check (plan in ('free', 'starter', 'business', 'enterprise')),
+    plan        text not null default 'trial'
+                check (plan in ('free', 'starter', 'business', 'enterprise', 'trial')),
     status      text not null default 'active'
                 check (status in ('active', 'suspended', 'cancelled')),
     settings    jsonb not null default '{}',
@@ -125,7 +125,7 @@ create table if not exists jobs (
 );
 
 -- claim_job RPC (used by worker runner: SELECT ... FOR UPDATE SKIP LOCKED)
-create or replace function claim_job(current_time timestamptz)
+create or replace function claim_job(p_current_time timestamptz)
 returns setof jobs
 language sql
 as $$
@@ -134,7 +134,7 @@ as $$
     where id = (
         select id from jobs
         where status = 'pending'
-          and run_at <= current_time
+          and run_at <= p_current_time
           and attempts < max_attempts
         order by run_at asc
         limit 1
