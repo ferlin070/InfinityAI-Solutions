@@ -109,6 +109,74 @@ def test_chain_runs_all_callbacks_even_if_one_fails():
     assert calls == ["ok"]
 
 
+def test_on_event_fires_around_tool_call_execution():
+    provider = MagicMock()
+    provider.complete.side_effect = [
+        LLMResult(
+            text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+            tool_calls=[{"id": "call_1", "function": {"name": "my_tool", "arguments": "{}"}}],
+        ),
+        LLMResult(
+            text="hasil akhir", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+        ),
+    ]
+    events = []
+    adapter = InfinityLLMAdapter(
+        provider=provider,
+        model="gpt-4o-mini",
+        agent_key="DANISH",
+        on_event=lambda event_type, payload: events.append((event_type, payload)),
+    )
+
+    response = adapter.call(
+        "buat banner",
+        tools=[{"type": "function", "function": {"name": "my_tool"}}],
+        available_functions={"my_tool": lambda: "tool output"},
+    )
+
+    assert response == "hasil akhir"
+    assert events == [
+        ("tool_call", {"agent": "DANISH", "tool": "my_tool", "status": "start"}),
+        ("tool_call", {"agent": "DANISH", "tool": "my_tool", "status": "done"}),
+    ]
+
+
+def test_on_event_fires_done_even_when_tool_raises():
+    provider = MagicMock()
+    provider.complete.side_effect = [
+        LLMResult(
+            text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+            tool_calls=[{"id": "call_1", "function": {"name": "broken_tool", "arguments": "{}"}}],
+        ),
+        LLMResult(
+            text="dah selesai", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+        ),
+    ]
+    events = []
+
+    def _boom():
+        raise RuntimeError("boom")
+
+    adapter = InfinityLLMAdapter(
+        provider=provider,
+        model="gpt-4o-mini",
+        agent_key="DANISH",
+        on_event=lambda event_type, payload: events.append((event_type, payload)),
+    )
+
+    adapter.call(
+        "buat banner",
+        tools=[{"type": "function", "function": {"name": "broken_tool"}}],
+        available_functions={"broken_tool": _boom},
+    )
+
+    assert [e[1]["status"] for e in events] == ["start", "done"]
+
+
 def test_structured_log_callback_does_not_raise():
     result = LLMResult(
         text="x", tokens_in=1, tokens_out=1, cost_usd=0.0, duration_ms=1,

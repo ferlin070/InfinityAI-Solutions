@@ -7,6 +7,8 @@ from src.ai.providers.base import LLMProvider, LLMResult, Message
 
 # CrewAI calls llm.call(...) with either a raw string or a list of role/content dicts.
 ResultCallback = Callable[[str, str | None, LLMResult], None]
+# Fired around tool-call execution for live progress reporting (event_type, payload).
+EventCallback = Callable[[str, dict], None]
 
 
 class InfinityLLMAdapter(BaseLLM):
@@ -30,6 +32,7 @@ class InfinityLLMAdapter(BaseLLM):
         temperature: float | None = 0.7,
         max_tokens: int = 4096,
         on_result: ResultCallback | None = None,
+        on_event: EventCallback | None = None,
     ) -> None:
         super().__init__(model=model, temperature=temperature)
         self._provider = provider
@@ -37,6 +40,7 @@ class InfinityLLMAdapter(BaseLLM):
         self._org_id = org_id
         self._max_tokens = max_tokens
         self._on_result = on_result
+        self._on_event = on_event or (lambda event_type, payload: None)
 
     def call(
         self,
@@ -79,11 +83,14 @@ class InfinityLLMAdapter(BaseLLM):
                 if fn is None:
                     fn_output = f"Error: unknown tool '{fn_name}'"
                 else:
+                    self._on_event("tool_call", {"agent": self._agent_key, "tool": fn_name, "status": "start"})
                     try:
                         fn_args = json.loads(fn_args_raw) if isinstance(fn_args_raw, str) else fn_args_raw
                         fn_output = fn(**fn_args) if isinstance(fn_args, dict) else fn(fn_args_raw)
                     except Exception as e:
                         fn_output = f"Error executing {fn_name}: {e}"
+                    finally:
+                        self._on_event("tool_call", {"agent": self._agent_key, "tool": fn_name, "status": "done"})
 
                 normalized.append({
                     "role": "assistant",

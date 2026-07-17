@@ -1,8 +1,8 @@
 from crewai import Agent
 
 from src.ai.agents.registry import AgentConfig
-from src.ai.agents.tool_mappings import TOOL_MAPPINGS
-from src.ai.crewai_adapter.llm_adapter import InfinityLLMAdapter, ResultCallback
+from src.ai.agents.tool_mappings import get_tools
+from src.ai.crewai_adapter.llm_adapter import EventCallback, InfinityLLMAdapter, ResultCallback
 from src.ai.providers.registry import resolve_provider
 
 
@@ -10,6 +10,8 @@ def build_crewai_agent(
     config: AgentConfig,
     llm: InfinityLLMAdapter | None = None,
     on_result: ResultCallback | None = None,
+    on_event: EventCallback | None = None,
+    artifact_collector: list[dict] | None = None,
 ) -> Agent:
     """Assemble a crewai.Agent from an AgentConfig. This is the only place that
     turns 'an agent persona exists' into 'CrewAI can execute it' — see
@@ -39,6 +41,7 @@ def build_crewai_agent(
             agent_key=config.key,
             org_id=config.org_id,
             on_result=on_result,
+            on_event=on_event,
         )
 
     return Agent(
@@ -46,7 +49,7 @@ def build_crewai_agent(
         goal=config.goal,
         backstory=config.backstory,
         llm=llm,
-        tools=TOOL_MAPPINGS.get(config.key, []),
+        tools=get_tools(config.key, artifact_collector),
         allow_delegation=False,
         verbose=False,
     )

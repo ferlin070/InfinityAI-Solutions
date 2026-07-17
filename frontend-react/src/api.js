@@ -30,6 +30,67 @@ export async function fetchHistory() {
     return apiGet('/api/history');
 }
 
+// ─── Unified dashboard chat (live SSE) ───────────────────────
+
+// EventSource doesn't support POST bodies, so the SSE stream is parsed by
+// hand over a fetch() ReadableStream. `onEvent(eventType, payload)` is
+// called for every "event: ...\ndata: ...\n\n" frame the server sends —
+// progress events (status/tool_call/agent_start/agent_done) while Claudia
+// and any specialists work, then a terminal "final" (or "error") event.
+export async function streamChat(prompt, modelName, onEvent) {
+    const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, model: modelName })
+    });
+
+    if (response.status === 401) {
+        window.location.href = '#login';
+        return;
+    }
+    if (!response.ok || !response.body) {
+        throw new Error('Sambungan streaming gagal.');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sepIndex;
+        while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
+            const rawEvent = buffer.slice(0, sepIndex);
+            buffer = buffer.slice(sepIndex + 2);
+
+            let eventType = 'message';
+            let dataLine = null;
+            for (const line of rawEvent.split('\n')) {
+                if (line.startsWith('event: ')) eventType = line.slice(7);
+                else if (line.startsWith('data: ')) dataLine = line.slice(6);
+            }
+            if (dataLine !== null) {
+                try {
+                    onEvent(eventType, JSON.parse(dataLine));
+                } catch (e) {
+                    console.error('Gagal parse SSE event:', e);
+                }
+            }
+        }
+    }
+}
+
+export async function fetchChatHistory() {
+    return apiGet('/api/chat/history');
+}
+
+export async function clearChat() {
+    return apiPost('/api/chat/clear', {});
+}
+
 // ─── WhatsApp API ─────────────────────────────────────────────
 
 export async function fetchConversations(status) {
