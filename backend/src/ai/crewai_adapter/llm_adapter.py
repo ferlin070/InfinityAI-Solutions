@@ -1,3 +1,4 @@
+import json
 from typing import Any, Callable
 
 from crewai.llms.base_llm import BaseLLM
@@ -15,11 +16,9 @@ class InfinityLLMAdapter(BaseLLM):
     CrewAI never sees an OpenAI (or any future provider) SDK directly — see
     docs/architecture/ai-execution-crewai.md §1.2/§5.1.
 
-    MVP does not support CrewAI tool/function-calling (see `tools/` — empty until
-    real product/pricing lookups are needed). `supports_function_calling` returning
-    False makes CrewAI fall back to plain-text `.call()` + JSON parsing wherever it
-    would otherwise use instructor-based structured extraction, which matches the
-    existing JSON-assignment parsing already used by `services/logging.extract_json`.
+    Supports tool/function-calling: when `available_functions` are provided and the
+    LLM returns `tool_calls`, this adapter executes the functions and re-calls the
+    LLM with the results — the tool loop is handled here, not by CrewAI itself.
     """
 
     def __init__(
@@ -48,34 +47,60 @@ class InfinityLLMAdapter(BaseLLM):
         from_task: Any | None = None,
         from_agent: Any | None = None,
     ) -> str:
-        if tools:
-            raise NotImplementedError(
-                f"InfinityLLMAdapter for agent '{self._agent_key}' received tool "
-                "definitions, but CrewAI tool/function-calling isn't wired up in MVP "
-                "(see docs/architecture/ai-execution-crewai.md §2 ai/tools/). "
-                "Attach tools only once ai/tools/ has real implementations."
-            )
-
         normalized: list[Message] = (
             [{"role": "user", "content": messages}]
             if isinstance(messages, str)
             else messages
         )
 
-        result = self._provider.complete(
-            messages=normalized,
-            model=self.model,
-            temperature=self.temperature if self.temperature is not None else 0.7,
-            max_tokens=self._max_tokens,
-        )
+        # Tool loop: call provider, if tool_calls returned, execute functions and repeat
+        current_tools = tools
+        while True:
+            result = self._provider.complete(
+                messages=normalized,
+                model=self.model,
+                temperature=self.temperature if self.temperature is not None else 0.7,
+                max_tokens=self._max_tokens,
+                tools=current_tools,
+            )
 
-        if self._on_result:
-            self._on_result(self._agent_key, self._org_id, result)
+            tool_calls = result.get("tool_calls")
+            if not tool_calls or not available_functions:
+                # No (more) tools to execute — return the text response
+                if self._on_result:
+                    self._on_result(self._agent_key, self._org_id, result)
+                return result["text"]
 
-        return result["text"]
+            # Execute each tool call and append results to messages
+            for tc in tool_calls:
+                fn_name = tc["function"]["name"]
+                fn_args_raw = tc["function"]["arguments"]
+                fn = available_functions.get(fn_name)
+                if fn is None:
+                    fn_output = f"Error: unknown tool '{fn_name}'"
+                else:
+                    try:
+                        fn_args = json.loads(fn_args_raw) if isinstance(fn_args_raw, str) else fn_args_raw
+                        fn_output = fn(**fn_args) if isinstance(fn_args, dict) else fn(fn_args_raw)
+                    except Exception as e:
+                        fn_output = f"Error executing {fn_name}: {e}"
+
+                normalized.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{"id": tc["id"], "type": "function", "function": tc["function"]}],
+                })
+                normalized.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": str(fn_output),
+                })
+
+            # Subsequent iterations don't resend tool definitions
+            current_tools = None
 
     def supports_function_calling(self) -> bool:
-        return False
+        return True
 
     def supports_stop_words(self) -> bool:
         return True

@@ -13,16 +13,48 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CREWAI_TESTING=true
-      - NVIDIA_NIM_API_KEY=${NVIDIA_NIM_API_KEY}
-      - GAS_WEB_APP_URL=${GAS_WEB_APP_URL}
-      - ZARA_DRIVE_FOLDER_ID=${ZARA_DRIVE_FOLDER_ID}
-      - DANISH_DRIVE_FOLDER_ID=${DANISH_DRIVE_FOLDER_ID}
-      - MAYA_DRIVE_FOLDER_ID=${MAYA_DRIVE_FOLDER_ID}
-      - AMELIA_DRIVE_FOLDER_ID=${AMELIA_DRIVE_FOLDER_ID}
-      - AIMAN_DRIVE_FOLDER_ID=${AIMAN_DRIVE_FOLDER_ID}
-      - ADILA_DRIVE_FOLDER_ID=${ADILA_DRIVE_FOLDER_ID}
-      - HAKIM_DRIVE_FOLDER_ID=${HAKIM_DRIVE_FOLDER_ID}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GATEWAY_INTERNAL_URL=http://gateway-wa:3000
+      - GATEWAY_SHARED_SECRET=${GATEWAY_SHARED_SECRET:-dev-secret-change-in-production}
       - PORT=7860
     volumes:
       - ./backend:/app
       - ./frontend:/app/frontend
+    depends_on:
+      - gateway-wa
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m src.workers.runner
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CREWAI_TESTING=true
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GATEWAY_INTERNAL_URL=http://gateway-wa:3000
+      - GATEWAY_SHARED_SECRET=${GATEWAY_SHARED_SECRET:-dev-secret-change-in-production}
+    volumes:
+      - ./backend:/app
+      - ./frontend:/app/frontend
+    depends_on:
+      - gateway-wa
+
+  gateway-wa:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - GATEWAY_PORT=3000
+      - FASTAPI_WEBHOOK_URL=http://backend:7860/webhooks/wa-gateway
+      - GATEWAY_SHARED_SECRET=${GATEWAY_SHARED_SECRET:-dev-secret-change-in-production}
+    volumes:
+      - gateway_auth:/app/.wwebjs_auth
+
+volumes:
+  gateway_auth:

@@ -1,11 +1,10 @@
 import json
 import os
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Cookie, Response, Request
+from fastapi import APIRouter, HTTPException, Cookie, Response, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from src.core.config import LOG_FILE, FRONTEND_DIR
 from src.core import config
-from src.schemas.models import ExecuteResponse, ExecutionRequest, UserInput, UserLogin
-from src.services.orchestrator import execute_task
+from src.schemas.models import ExecuteResponse, ExecutionRequest, UserLogin
 from src.ai.flows.task_execution_flow import TaskExecutionFlow
 from src.core.sessions import verify_session, create_session, destroy_session
 
@@ -133,18 +132,6 @@ async def history(session_token: str | None = Cookie(None)):
         return []
     with open(LOG_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-@router.post("/api/execute")
-async def execute(data: UserInput, background_tasks: BackgroundTasks, session_token: str | None = Cookie(None)):
-    """Deprecated — superseded by POST /api/executions (CrewAI + OpenAI, see
-    docs/architecture/ai-execution-crewai.md §6/§10). Kept only until Step 8's
-    acceptance test confirms behavioral parity; the dashboard no longer calls this.
-    """
-    if not verify_session(session_token):
-        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
-        
-    return await execute_task(data, background_tasks)
 
 
 @router.post("/api/executions", response_model=ExecuteResponse)

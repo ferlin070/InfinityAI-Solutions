@@ -1,0 +1,82 @@
+const { Client, LocalAuth } = require("whatsapp-web.js");
+const qrcode = require("qrcode");
+const axios = require("axios");
+const config = require("./config");
+
+const sessions = new Map(); // channelId -> { client, status, qr }
+
+function createSession(channelId) {
+  if (sessions.has(channelId)) {
+    return sessions.get(channelId);
+  }
+
+  const client = new Client({
+    authStrategy: new LocalAuth({ clientId: channelId }),
+    puppeteer: {
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    },
+  });
+
+  const entry = { client, status: "pending_qr", qr: null };
+  sessions.set(channelId, entry);
+
+  client.on("qr", async (qrData) => {
+    entry.qr = await qrcode.toDataURL(qrData);
+    entry.status = "pending_qr";
+  });
+
+  client.on("ready", () => {
+    entry.status = "connected";
+    entry.qr = null;
+  });
+
+  client.on("disconnected", () => {
+    entry.status = "disconnected";
+  });
+
+  client.on("message", async (msg) => {
+    try {
+      await axios.post(
+        config.fastapiWebhookUrl,
+        {
+          channel_id: channelId,
+          from: msg.from,
+          body: msg.body,
+          message_id: msg.id._serialized,
+          timestamp: msg.timestamp,
+        },
+        {
+          headers: {
+            "X-Gateway-Secret": config.gatewaySharedSecret,
+            "Content-Type": "application/json",
+          },
+          timeout: 5000,
+        }
+      );
+    } catch (err) {
+      console.error(`[${channelId}] Failed to forward inbound message:`, err.message);
+    }
+  });
+
+  client.initialize().catch((err) => {
+    console.error(`[${channelId}] Initialization error:`, err.message);
+    entry.status = "disconnected";
+  });
+
+  return entry;
+}
+
+function getSession(channelId) {
+  return sessions.get(channelId) || null;
+}
+
+function destroySession(channelId) {
+  const entry = sessions.get(channelId);
+  if (entry) {
+    entry.client.destroy().catch(() => {});
+    sessions.delete(channelId);
+  }
+}
+
+module.exports = { createSession, getSession, destroySession };

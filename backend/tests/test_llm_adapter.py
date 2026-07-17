@@ -70,19 +70,20 @@ def test_call_invokes_on_result_callback():
     assert seen[0][2]["text"] == "hasil"
 
 
-def test_call_with_tools_raises_not_implemented():
+def test_call_with_tools_passes_tools_to_provider():
     provider = _fake_provider()
     adapter = InfinityLLMAdapter(provider=provider, model="gpt-4o-mini", agent_key="ZARA")
 
-    with pytest.raises(NotImplementedError):
-        adapter.call("hi", tools=[{"name": "lookup_price"}])
+    tools = [{"type": "function", "function": {"name": "lookup_price", "parameters": {"type": "object"}}}]
+    adapter.call("hi", tools=tools)
 
-    provider.complete.assert_not_called()
+    provider.complete.assert_called_once()
+    assert provider.complete.call_args.kwargs["tools"] == tools
 
 
-def test_supports_function_calling_is_false():
+def test_supports_function_calling_is_true():
     adapter = InfinityLLMAdapter(provider=_fake_provider(), model="gpt-4o-mini", agent_key="ZARA")
-    assert adapter.supports_function_calling() is False
+    assert adapter.supports_function_calling() is True
 
 
 def test_context_window_known_and_unknown_model():

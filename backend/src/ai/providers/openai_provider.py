@@ -4,7 +4,7 @@ from typing import Iterator
 import openai
 from openai import OpenAI
 
-from src.ai.providers.base import LLMProvider, LLMResult, Message
+from src.ai.providers.base import LLMProvider, LLMResult, Message, ToolCall
 from src.ai.providers.errors import (
     ProviderAuthError,
     ProviderContextLengthError,
@@ -39,15 +39,19 @@ class OpenAIProvider(LLMProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int = 4096,
+        tools: list[dict] | None = None,
     ) -> LLMResult:
         start = time.time()
         try:
-            resp = self._client.chat.completions.create(
+            kwargs = dict(
                 model=model,
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+            if tools:
+                kwargs["tools"] = tools
+            resp = self._client.chat.completions.create(**kwargs)
         except Exception as e:
             raise self._normalize_error(e) from e
 
@@ -55,15 +59,24 @@ class OpenAIProvider(LLMProvider):
         usage = resp.usage
         tokens_in = usage.prompt_tokens if usage else 0
         tokens_out = usage.completion_tokens if usage else 0
+        choice = resp.choices[0].message
+
+        tool_calls = None
+        if choice.tool_calls:
+            tool_calls = [
+                ToolCall(id=tc.id, function={"name": tc.function.name, "arguments": tc.function.arguments})
+                for tc in choice.tool_calls
+            ]
 
         return LLMResult(
-            text=resp.choices[0].message.content or "",
+            text=choice.content or "",
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             cost_usd=self._estimate_cost(model, tokens_in, tokens_out),
             duration_ms=duration_ms,
             model=model,
             provider="openai",
+            tool_calls=tool_calls,
         )
 
     def stream(
