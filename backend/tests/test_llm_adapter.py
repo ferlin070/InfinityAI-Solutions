@@ -177,6 +177,82 @@ def test_on_event_fires_done_even_when_tool_raises():
     assert [e[1]["status"] for e in events] == ["start", "done"]
 
 
+def test_build_tool_schema_sanitizes_names_and_extracts_json_schema():
+    from crewai.tools import tool
+
+    @tool("My Cool Tool")
+    def my_tool(x: str) -> str:
+        """Does a thing with x."""
+        return f"did {x}"
+
+    schema, available_functions = InfinityLLMAdapter._build_tool_schema([my_tool])
+
+    assert schema == [{
+        "type": "function",
+        "function": {
+            "name": "My_Cool_Tool",  # OpenAI rejects spaces in function names
+            "description": my_tool.description,
+            "parameters": my_tool.args_schema.model_json_schema(),
+        },
+    }]
+    assert available_functions["My_Cool_Tool"](x="hi") == "did hi"
+
+
+def test_call_auto_builds_tools_from_from_task_when_crewai_omits_them():
+    """Regression test for the real production bug: CrewAI's own executor
+    (crew_agent_executor.py's get_llm_response) never passes `tools`/
+    `available_functions`/`from_agent` to a custom BaseLLM.call() — only
+    `from_task`. Confirmed live: an agent with a real tool attached (Danish +
+    Image Generation) never actually invoked it; it just wrote text describing
+    what the image would look like. If this auto-build path breaks again, tool
+    use silently degrades back to that exact failure mode."""
+    from crewai.tools import tool
+
+    @tool("Stub Tool")
+    def stub_tool(prompt: str) -> str:
+        """A stub tool for testing."""
+        return f"stub result for {prompt}"
+
+    provider = MagicMock()
+    provider.complete.side_effect = [
+        LLMResult(
+            text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+            tool_calls=[{"id": "call_1", "function": {"name": "Stub_Tool", "arguments": '{"prompt": "banner"}'}}],
+        ),
+        LLMResult(
+            text="Ini banner anda!", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+        ),
+    ]
+    fake_task = MagicMock()
+    fake_task.tools = [stub_tool]
+    adapter = InfinityLLMAdapter(provider=provider, model="gpt-4o-mini", agent_key="DANISH")
+
+    response = adapter.call("buat banner", from_task=fake_task)
+
+    assert response == "Ini banner anda!"
+    # The auto-built tools schema must have reached the provider on the first call.
+    first_call_tools = provider.complete.call_args_list[0].kwargs["tools"]
+    assert first_call_tools[0]["function"]["name"] == "Stub_Tool"
+    # And the tool result must have been fed back as a tool message.
+    second_call_messages = provider.complete.call_args_list[1].kwargs["messages"]
+    assert any(m.get("content") == "stub result for banner" for m in second_call_messages)
+
+
+def test_call_does_not_auto_build_tools_when_explicitly_provided():
+    provider = _fake_provider()
+    fake_task = MagicMock()
+    fake_task.tools = [MagicMock(name="should not be used")]
+    adapter = InfinityLLMAdapter(provider=provider, model="gpt-4o-mini", agent_key="ZARA")
+
+    adapter.call("hi", tools=[{"type": "function", "function": {"name": "explicit"}}], from_task=fake_task)
+
+    assert provider.complete.call_args.kwargs["tools"] == [
+        {"type": "function", "function": {"name": "explicit"}}
+    ]
+
+
 def test_structured_log_callback_does_not_raise():
     result = LLMResult(
         text="x", tokens_in=1, tokens_out=1, cost_usd=0.0, duration_ms=1,
