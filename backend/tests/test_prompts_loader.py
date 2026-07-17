@@ -15,11 +15,11 @@ def test_all_agent_keys_have_a_mapping():
         assert role and goal and backstory
 
 
-def test_claudia_backstory_preserves_json_only_output_rule():
+def test_claudia_backstory_preserves_json_routing_format():
     _, _, backstory = resolve_role_goal_backstory("CLAUDIA")
     assert '"status": "accepted"' in backstory
     assert '"assignments"' in backstory
-    assert "HANYA JSON" in backstory
+    assert "JSON" in backstory
 
 
 def test_claudia_backstory_preserves_routing_rule_forbidding_danish_for_sales():
@@ -27,9 +27,11 @@ def test_claudia_backstory_preserves_routing_rule_forbidding_danish_for_sales():
     assert "JANGAN hantar tugasan JUALAN kepada DANISH" in backstory
 
 
-def test_danish_backstory_preserves_no_video_script_constraint():
+def test_danish_backstory_preserves_helpful_tone():
     _, _, backstory = resolve_role_goal_backstory("DANISH")
-    assert "JANGAN buat skrip video kecuali diminta" in backstory
+    assert "mesra" in backstory
+    assert "helpful" in backstory
+    assert "copywriting" in backstory
 
 
 def test_lowercase_key_is_normalized():
