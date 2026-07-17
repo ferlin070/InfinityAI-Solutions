@@ -3,10 +3,7 @@ from crewai.flow.flow import Flow, listen, start
 
 from src.ai.agents.factory import build_crewai_agent
 from src.ai.agents.registry import load_agent
-from src.ai.tools import contact_info_tool, conversation_history_tool, product_pricing_tool
 from src.core.config import logger
-
-_TOOLS = [product_pricing_tool, contact_info_tool, conversation_history_tool]
 
 
 class InboundConversationFlow(Flow):
@@ -24,7 +21,6 @@ class InboundConversationFlow(Flow):
     def maya_reply(self):
         maya_config = load_agent("MAYA", org_id=self.org_id)
         maya = build_crewai_agent(maya_config)
-        maya.tools = _TOOLS
 
         conversation_history = "\n".join(
             f"[{m.get('sender', 'customer')}]: {m.get('body', '')}"
