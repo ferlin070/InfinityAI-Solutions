@@ -14,6 +14,11 @@ function createSession(channelId) {
     authStrategy: new LocalAuth({ clientId: channelId }),
     puppeteer: {
       headless: true,
+      // Explicit, not just env-var-implicit: confirmed via live production
+      // logs that omitting this makes Puppeteer look for its own bundled
+      // Chromium (skipped at build time by PUPPETEER_SKIP_DOWNLOAD) instead
+      // of the system one actually installed in the Dockerfile.
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     },
   });
