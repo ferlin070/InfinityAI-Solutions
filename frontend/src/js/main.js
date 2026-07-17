@@ -136,14 +136,41 @@ function updateNetworkStatus() {
 window.addEventListener('online', updateNetworkStatus);
 window.addEventListener('offline', updateNetworkStatus);
 
+// ─── Tab Switching ───────────────────────────────────────────
+function switchTab(tab) {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.nav-tab[data-tab="${tab}"]`).classList.add('active');
+
+    document.getElementById('tabWorkorder').classList.toggle('hidden', tab !== 'workorder');
+    document.getElementById('tabWhatsapp').classList.toggle('hidden', tab !== 'whatsapp');
+
+    if (tab === 'whatsapp') {
+        startWAPolling();
+    } else {
+        stopWAPolling();
+        // restore history polling for workorder tab
+        if (navigator.onLine) updateHistory(historyBody);
+    }
+}
+
+// ─── Network status (override to also handle WA tab) ─────────
+const _origUpdateNetwork = updateNetworkStatus;
+updateNetworkStatus = function() {
+    _origUpdateNetwork();
+    // if WhatsApp tab is active, stop polling when offline
+    if (!navigator.onLine && !document.getElementById('tabWhatsapp').classList.contains('hidden')) {
+        stopWAPolling();
+    }
+};
+
 // Initialize history, profile, and network status check
 updateNetworkStatus();
 loadUserProfile();
 updateHistory(historyBody);
 
-// Update history every 10 seconds
+// Update history every 10 seconds (only for workorder tab)
 setInterval(() => {
-    if (navigator.onLine) {
+    if (navigator.onLine && document.getElementById('tabWorkorder').classList.contains('hidden') === false) {
         updateHistory(historyBody);
     }
 }, 10000);

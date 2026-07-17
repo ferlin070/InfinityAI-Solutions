@@ -22,7 +22,7 @@ class ScriptedProvider:
         self._raise_from_call = raise_from_call
         self.call_count = 0
 
-    def complete(self, messages, model, temperature=0.7, max_tokens=4096):
+    def complete(self, messages, model, temperature=0.7, max_tokens=4096, tools=None):
         self.call_count += 1
         if self._raise_from_call is not None and self.call_count >= self._raise_from_call:
             # CrewAI's own Agent executor retries a failing LLM call up to

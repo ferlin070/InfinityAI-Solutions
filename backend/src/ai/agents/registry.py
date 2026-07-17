@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from src.ai.agents.config_store import get_agent_config_store
 from src.ai.prompts.loader import resolve_role_goal_backstory
 from src.core.constants import AGENTS
 
@@ -44,11 +45,31 @@ def load_agent(key: str, org_id: str | None = None) -> AgentConfig:
 
 def _build_config(key: str, org_id: str | None) -> AgentConfig:
     role, goal, backstory = resolve_role_goal_backstory(key)
+    provider = _DEFAULT_PROVIDER
+    model = _DEFAULT_MODEL
+
+    if org_id:
+        store = get_agent_config_store()
+        override = store.get(org_id, key)
+        if override:
+            if override.provider:
+                provider = override.provider
+            if override.model:
+                model = override.model
+            if override.role:
+                role = override.role
+            if override.goal:
+                goal = override.goal
+            if override.backstory:
+                backstory = override.backstory
+
     return AgentConfig(
         key=key,
         name=AGENTS[key]["name"],
         role=role,
         goal=goal,
         backstory=backstory,
+        provider=provider,
+        model=model,
         org_id=org_id,
     )

@@ -64,7 +64,30 @@ const translations = {
         "connection-lost": "Connection to server lost. Try sending again.",
         "status-offline": "DISCONNECTED / OFFLINE",
         "btn-offline": "Offline / Disconnected",
-        "login-offline": "Disconnected. Cannot authenticate."
+        "login-offline": "Disconnected. Cannot authenticate.",
+
+        // WhatsApp Operations
+        "tab-workorder": "Work Order",
+        "tab-whatsapp": "WhatsApp Ops",
+        "wa-conversations": "Conversations",
+        "wa-leads": "Leads",
+        "wa-quotations": "Quotations",
+        "wa-conv-title": "Active Conversations",
+        "wa-conv-note": "10s refresh",
+        "wa-msg-title": "Messages",
+        "wa-takeover": "Take Over",
+        "wa-select-conv": "Select a conversation from the list.",
+        "wa-reply-placeholder": "Type a reply...",
+        "wa-send": "Send",
+        "wa-filter-all": "All",
+        "wa-quote-title": "Pending Approval",
+
+        // WhatsApp Connection
+        "wa-connection-title": "WhatsApp Connection",
+        "wa-phone-placeholder": "+60123456789",
+        "wa-connect-btn": "Connect New Number",
+        "wa-scan-qr": "Scan this QR code with your WhatsApp Business app:",
+        "wa-no-channels": "No WhatsApp numbers connected yet."
     }
 };
 
@@ -103,7 +126,30 @@ const msFallback = {
     "btn-sending": "Claudia sedang delegasi…",
     "status-offline": "SAMBUNGAN TERPUTUS / OFFLINE",
     "btn-offline": "Tiada Talian / Offline",
-    "login-offline": "Rangkaian Terputus. Log masuk tidak dapat disahkan."
+    "login-offline": "Rangkaian Terputus. Log masuk tidak dapat disahkan.",
+
+    // WhatsApp Operations
+    "tab-workorder": "Arahan Kerja",
+    "tab-whatsapp": "Operasi WhatsApp",
+    "wa-conversations": "Perbualan",
+    "wa-leads": "Prospek",
+    "wa-quotations": "Sebut Harga",
+    "wa-conv-title": "Perbualan Aktif",
+    "wa-conv-note": "10 saat",
+    "wa-msg-title": "Pesanan",
+    "wa-takeover": "Ambil Alih",
+    "wa-select-conv": "Pilih perbualan dari senarai.",
+    "wa-reply-placeholder": "Taip balasan...",
+    "wa-send": "Hantar",
+    "wa-filter-all": "Semua",
+    "wa-quote-title": "Menunggu Kelulusan",
+
+    // WhatsApp Connection
+    "wa-connection-title": "Sambungan WhatsApp",
+    "wa-phone-placeholder": "+60123456789",
+    "wa-connect-btn": "Sambung Nombor Baru",
+    "wa-scan-qr": "Scan QR ini dengan WhatsApp Business anda:",
+    "wa-no-channels": "Belum ada nombor WhatsApp disambungkan."
 };
 
 function t(key, replacements = {}) {

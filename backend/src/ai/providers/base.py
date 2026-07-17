@@ -1,10 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Iterator, TypedDict
+from typing import Any, Iterator, TypedDict
 
 
 class Message(TypedDict):
-    role: str  # "system" | "user" | "assistant"
+    role: str  # "system" | "user" | "assistant" | "tool"
     content: str
+
+
+class ToolCall(TypedDict):
+    id: str
+    function: dict  # {"name": str, "arguments": str}
 
 
 class LLMResult(TypedDict):
@@ -15,6 +20,7 @@ class LLMResult(TypedDict):
     duration_ms: int
     model: str
     provider: str
+    tool_calls: list[ToolCall] | None  # present when LLM requests tool execution
 
 
 class LLMProvider(ABC):
@@ -31,6 +37,7 @@ class LLMProvider(ABC):
         model: str,
         temperature: float = 0.7,
         max_tokens: int = 4096,
+        tools: list[dict] | None = None,
     ) -> LLMResult:
         ...
 

@@ -8,6 +8,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.core.config import verify_environment, logger, FRONTEND_DIR
 from src.core.middleware import setup_cors, setup_security_headers
 from src.api.routes import router as api_router
+from src.api.webhooks import router as webhook_router
+from src.api.wa_routes import router as wa_router
 from fastapi.staticfiles import StaticFiles
 
 # Initialize FastAPI app
@@ -25,6 +27,8 @@ app.mount("/icons", StaticFiles(directory=os.path.join(FRONTEND_DIR, "icons")), 
 
 # Include routes
 app.include_router(api_router)
+app.include_router(webhook_router)
+app.include_router(wa_router)
 
 # Verify environment on startup
 verify_environment()
