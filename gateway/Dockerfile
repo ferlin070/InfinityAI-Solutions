@@ -15,9 +15,9 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
-COPY package.json .
+COPY gateway/package.json .
 RUN npm install
-COPY src/ src/
+COPY gateway/src/ src/
 
 EXPOSE 3000
 CMD ["node", "src/index.js"]
