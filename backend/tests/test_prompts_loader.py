@@ -43,6 +43,14 @@ def test_danish_backstory_preserves_helpful_tone():
     assert "copywriting" in backstory
 
 
+def test_danish_backstory_requires_image_tool_for_visual_requests():
+    _, _, backstory = resolve_role_goal_backstory("DANISH")
+    assert "Image Generation tool" in backstory
+    # Must explicitly forbid the failure mode observed in production: writing
+    # banner *copy* instead of actually calling the image tool.
+    assert "JANGAN" in backstory
+
+
 def test_lowercase_key_is_normalized():
     upper = resolve_role_goal_backstory("ZARA")
     lower = resolve_role_goal_backstory("zara")
