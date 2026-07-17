@@ -15,7 +15,7 @@ export default function Login({ onLoginSuccess }) {
     setError(null);
     try {
       const res = await login(email, password);
-      if (res && res.status === 'ok') {
+      if (res && (res.status === 'ok' || res.status === 'success')) {
         onLoginSuccess();
       } else {
         setError(res?.message || 'E-mel atau kata laluan tidak sah.');
