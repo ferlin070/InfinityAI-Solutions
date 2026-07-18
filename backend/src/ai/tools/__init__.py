@@ -38,6 +38,13 @@ from .business_profile import (
     db_get_business_profile_tool,
     db_update_business_profile_tool,
 )
+from .platform_catalog import (
+    db_discover_platform_tool,
+    db_get_configuration_status_tool,
+    db_get_recent_activity_tool,
+    db_platform_status_tool,
+    PLATFORM_ROUTES,
+)
 from .workflow_tools import (
     workflow_trigger_inbound_reply_tool,
     workflow_generate_quotation_tool,
@@ -72,6 +79,12 @@ __all__ = [
     # Business profile tools
     "db_get_business_profile_tool",
     "db_update_business_profile_tool",
+    # Platform self-discovery tools
+    "db_discover_platform_tool",
+    "db_get_configuration_status_tool",
+    "db_get_recent_activity_tool",
+    "db_platform_status_tool",
+    "PLATFORM_ROUTES",
     # Workflow tools
     "workflow_trigger_inbound_reply_tool",
     "workflow_generate_quotation_tool",

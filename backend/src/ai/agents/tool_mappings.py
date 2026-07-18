@@ -58,6 +58,11 @@ from src.ai.tools import (
     # Business profile tools
     db_get_business_profile_tool,
     db_update_business_profile_tool,
+    # Platform self-discovery tools (work in live + demo mode)
+    db_discover_platform_tool,
+    db_get_configuration_status_tool,
+    db_get_recent_activity_tool,
+    db_platform_status_tool,
     # Workflow tools
     workflow_trigger_inbound_reply_tool,
     workflow_generate_quotation_tool,
@@ -111,10 +116,15 @@ STATIC_TOOL_MAPPINGS: dict[str, list] = {
         workflow_generate_quotation_tool,
     ],
 
-    # Hakim: System Architect + IT. System docs + generic DB reads.
-    # Browser tools added by get_tools() (full set).
+    # Hakim: System Architect + IT. System docs + platform self-discovery
+    # (so he can answer "where do I find X?"), DB reads, and the full
+    # browser toolset (added by get_tools()).
     "HAKIM": [
         system_documentation_tool,
+        db_discover_platform_tool,
+        db_platform_status_tool,
+        db_get_configuration_status_tool,
+        db_get_recent_activity_tool,
         db_list_products_tool,
         db_list_channels_tool,
     ],
