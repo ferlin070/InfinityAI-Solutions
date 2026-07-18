@@ -45,6 +45,7 @@ from .platform_catalog import (
     db_platform_status_tool,
     PLATFORM_ROUTES,
 )
+from .tool_registry import discover_tools_tool
 from .workflow_tools import (
     workflow_trigger_inbound_reply_tool,
     workflow_generate_quotation_tool,
@@ -85,6 +86,8 @@ __all__ = [
     "db_get_recent_activity_tool",
     "db_platform_status_tool",
     "PLATFORM_ROUTES",
+    # Tool registry discovery (agentic-v3)
+    "discover_tools_tool",
     # Workflow tools
     "workflow_trigger_inbound_reply_tool",
     "workflow_generate_quotation_tool",

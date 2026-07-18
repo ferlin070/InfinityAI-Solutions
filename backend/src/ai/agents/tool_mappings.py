@@ -63,6 +63,8 @@ from src.ai.tools import (
     db_get_configuration_status_tool,
     db_get_recent_activity_tool,
     db_platform_status_tool,
+    # Tool registry discovery (agentic-v3)
+    discover_tools_tool,
     # Workflow tools
     workflow_trigger_inbound_reply_tool,
     workflow_generate_quotation_tool,
@@ -71,8 +73,200 @@ from src.ai.tools import (
     workflow_schedule_job_tool,
 )
 from src.ai.tools.image_generation import build_image_generation_tool
+from src.ai.agentic.registry import ToolRegistry, register as _register_tool
 
 logger = logging.getLogger("ai_command_center")
+
+
+# ─── ToolRegistry: index every tool with metadata (capabilities, owners,
+# approval, risk). The Registry is queried at runtime by
+# `discover_tools_tool` and (in Phase 2) used for policy enforcement.
+# Adding a new tool = one `_register_tool(...)` call here. Idempotent.
+_register_tool(
+    "Product Pricing", "Semak harga produk dalam katalog.",
+    capabilities=["product.read", "pricing.read"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "Contact Info", "Cari profil contact + lead ikut nombor telefon.",
+    capabilities=["crm.read", "contact.read", "lead.read"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "Conversation History", "Sejarah perbualan WhatsApp untuk contact.",
+    capabilities=["crm.read", "conversation.read"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "System Documentation", "Cari maklumat tepat dari dokumentasi sistem.",
+    capabilities=["docs.read", "system.read"], owner_agents=("HAKIM",),
+    risk_level="low",
+)
+_register_tool(
+    "DB List Contacts", "Senaraikan contact dalam CRM, paling baru dulu.",
+    capabilities=["crm.read", "contact.list"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Upsert Contact", "Cipta atau kemas kini contact ikut nombor telefon.",
+    capabilities=["crm.write", "contact.write"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "DB Update Contact Tags", "Ganti senarai tag pada contact.",
+    capabilities=["crm.write", "contact.write"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "DB List Leads", "Senaraikan leads, dengan filter ikut skor (hot/warm/cold).",
+    capabilities=["crm.read", "lead.list"], owner_agents=("MAYA", "AIMAN", "ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Upsert Lead", "Cipta atau kemas kini lead untuk contact.",
+    capabilities=["crm.write", "lead.write"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "DB List Products", "Senarai katalog produk dengan harga + stok.",
+    capabilities=["product.read"], owner_agents=("MAYA", "ZARA", "DANISH", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Search Products", "Cari produk ikut teks (nama / description).",
+    capabilities=["product.read", "product.search"], owner_agents=("MAYA", "DANISH", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Create Product", "Tambah produk baru dalam katalog.",
+    capabilities=["product.write"], owner_agents=("NEXUS",),
+    risk_level="medium", live_only=True,
+    requires_approval=True,
+)
+_register_tool(
+    "DB Create Quotation", "Cipta sebut harga (status pending_approval).",
+    capabilities=["quotation.write", "crm.write"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "DB Approve Quotation", "Luluskan sebut harga (pending_approval -> sent).",
+    capabilities=["quotation.write", "finance.write"], owner_agents=("ZARA", "NEXUS"),
+    risk_level="high", live_only=True,
+    requires_approval=True,
+)
+_register_tool(
+    "DB List Pending Quotations", "Senarai sebut harga menunggu kelulusan.",
+    capabilities=["quotation.read"], owner_agents=("ZARA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Enqueue Job", "Letak kerja dalam queue async.",
+    capabilities=["jobs.write"], owner_agents=("ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB List Open Conversations", "Senarai perbualan terbuka + contact.",
+    capabilities=["conversation.read"], owner_agents=("ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Create Conversation", "Buka perbualan baru untuk contact.",
+    capabilities=["conversation.write"], owner_agents=("NEXUS",),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "DB Save Message", "Simpan mesej dalam perbualan.",
+    capabilities=["conversation.write"], owner_agents=("NEXUS",),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "DB List Channels", "Senarai WhatsApp channel + status.",
+    capabilities=["whatsapp.read", "channel.list"], owner_agents=("HAKIM", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Get Business Profile", "Baca profil perniagaan syarikat.",
+    capabilities=["profile.read"], owner_agents=("CLAUDIA", "ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "DB Update Business Profile", "Kemas kini profil perniagaan.",
+    capabilities=["profile.write"], owner_agents=("ADILA", "NEXUS"),
+    risk_level="high", live_only=True,
+    requires_approval=True,
+)
+_register_tool(
+    "DB Discover Platform", "Katalog halaman + API platform.",
+    capabilities=["platform.discover"], owner_agents=("CLAUDIA", "HAKIM", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "DB Platform Status", "Status platform aggregate (WhatsApp, leads, dll).",
+    capabilities=["platform.status"], owner_agents=("CLAUDIA", "HAKIM", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "DB Get Configuration Status", "Apa yang sudah/belum disetup (DB, providers, dll).",
+    capabilities=["config.read", "system.diagnose"], owner_agents=("CLAUDIA", "HAKIM", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "DB Get Recent Activity", "Aktiviti terkini dari daily_log.json.",
+    capabilities=["activity.read"], owner_agents=("CLAUDIA", "HAKIM", "NEXUS"),
+    risk_level="low",
+)
+_register_tool(
+    "DB Discover Tools", "Discover tool yang tersedia ikut capability/owner/query.",
+    capabilities=["meta.discover", "tool.discover"], owner_agents=("HAKIM", "NEXUS"),
+    risk_level="low",
+)
+# Workflow / business-process tools
+_register_tool(
+    "Workflow Trigger Inbound Reply", "End-to-end inbound WhatsApp flow.",
+    capabilities=["workflow.inbound", "crm.write"], owner_agents=("NEXUS",),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "Workflow Generate Quotation", "End-to-end jana sebut harga.",
+    capabilities=["workflow.quotation", "crm.write"], owner_agents=("MAYA", "NEXUS"),
+    risk_level="medium", live_only=True,
+)
+_register_tool(
+    "Workflow Trigger Daily Briefing", "Enqueue daily briefing job.",
+    capabilities=["workflow.briefing", "jobs.write"], owner_agents=("ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "Workflow Lead Pipeline Summary", "Ringkasan pipeline leads (count + top hot).",
+    capabilities=["crm.read", "lead.summary"], owner_agents=("ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+_register_tool(
+    "Workflow Schedule Job", "Schedule generic job.",
+    capabilities=["jobs.write"], owner_agents=("ADILA", "NEXUS"),
+    risk_level="low", live_only=True,
+)
+# Image generation (Danish + NEXUS)
+_register_tool(
+    "Image Generation", "Jana imej sebenar (banner, poster, grafik) dengan DALL-E.",
+    capabilities=["image.generate"], owner_agents=("DANISH", "NEXUS"),
+    risk_level="medium",
+)
+# Browser tools (HAKIM + NEXUS full; others subset)
+for _name in (
+    "Browser Navigate", "Browser Click", "Browser Type",
+    "Browser Select Dropdown", "Browser Screenshot", "Browser Get UI State",
+    "Browser Scroll", "Browser Wait For", "Browser Extract Text",
+    "Browser Close Session",
+):
+    _register_tool(
+        _name, f"Playwright/Chromium tool: {_name.split(maxsplit=1)[-1].lower()}.",
+        capabilities=["browser", "browser.automation"],
+        owner_agents=("HAKIM", "NEXUS"),
+        risk_level="medium",
+    )
+
+logger.info(f"ToolRegistry: {len(ToolRegistry.get().all())} tools registered.")
 
 
 # Agents that get an image-generation tool when a run supplies an artifact
@@ -127,10 +321,12 @@ STATIC_TOOL_MAPPINGS: dict[str, list] = {
     ],
 
     # Hakim: System Architect + IT. System docs + platform self-discovery
-    # (so he can answer "where do I find X?"), DB reads, and the full
-    # browser toolset (added by get_tools()).
+    # (so he can answer "where do I find X?"), DB reads, the full
+    # browser toolset (added by get_tools()), AND the meta discover-tools
+    # tool (so he can answer "which tool does X?").
     "HAKIM": [
         system_documentation_tool,
+        discover_tools_tool,
         db_discover_platform_tool,
         db_platform_status_tool,
         db_get_configuration_status_tool,
