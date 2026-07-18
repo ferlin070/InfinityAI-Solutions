@@ -71,7 +71,11 @@ class InfinityLLMAdapter(BaseLLM):
                     self._on_result(self._agent_key, self._org_id, result)
                 return result["text"]
 
-            # Execute each tool call and append results to messages
+            # Execute each tool call, then append a SINGLE assistant message
+            # containing all the tool_calls and one tool result per call.
+            # (One assistant turn = one message, even with multiple parallel calls.
+            # This matches OpenAI/Anthropic/Gemini conventions.)
+            executed_results: list[dict] = []
             for tc in tool_calls:
                 fn_name = tc["function"]["name"]
                 fn_args_raw = tc["function"]["arguments"]
@@ -84,16 +88,21 @@ class InfinityLLMAdapter(BaseLLM):
                         fn_output = fn(**fn_args) if isinstance(fn_args, dict) else fn(fn_args_raw)
                     except Exception as e:
                         fn_output = f"Error executing {fn_name}: {e}"
+                executed_results.append({"id": tc["id"], "output": str(fn_output)})
 
-                normalized.append({
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [{"id": tc["id"], "type": "function", "function": tc["function"]}],
-                })
+            normalized.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {"id": tc["id"], "type": "function", "function": tc["function"]}
+                    for tc in tool_calls
+                ],
+            })
+            for er in executed_results:
                 normalized.append({
                     "role": "tool",
-                    "tool_call_id": tc["id"],
-                    "content": str(fn_output),
+                    "tool_call_id": er["id"],
+                    "content": er["output"],
                 })
 
             # Subsequent iterations don't resend tool definitions

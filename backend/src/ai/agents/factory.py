@@ -1,7 +1,7 @@
 from crewai import Agent
 
 from src.ai.agents.registry import AgentConfig
-from src.ai.agents.tool_mappings import TOOL_MAPPINGS
+from src.ai.agents.tool_mappings import get_all_tools_for_agent
 from src.ai.crewai_adapter.llm_adapter import InfinityLLMAdapter, ResultCallback
 from src.ai.providers.registry import resolve_provider
 
@@ -42,7 +42,7 @@ def build_crewai_agent(
         goal=config.goal,
         backstory=config.backstory,
         llm=llm,
-        tools=TOOL_MAPPINGS.get(config.key, []),
+        tools=get_all_tools_for_agent(config.key),
         allow_delegation=False,
         verbose=False,
     )
