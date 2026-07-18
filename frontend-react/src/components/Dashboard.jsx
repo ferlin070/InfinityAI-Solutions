@@ -3,7 +3,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip 
 } from 'recharts';
 import { 
-  MessageSquare, Clock, CheckCircle, TrendingUp, Activity, 
+  MessageSquare, CheckCircle, TrendingUp, Activity, 
   Wifi, WifiOff, Users, ArrowUpRight, ShieldAlert 
 } from 'lucide-react';
 import { fetchHistory, fetchConversations, fetchLeads, fetchQuotations, fetchChannels } from '../api';
@@ -18,7 +18,7 @@ const trendData = [
   { day: 'Sun', chats: 50, unresolved: 2 },
 ];
 
-export default function Dashboard({ t, lang }) {
+export default function Dashboard({ t }) {
   const [metrics, setMetrics] = useState({
     totalChats: 0,
     activeChats: 0,
@@ -37,7 +37,7 @@ export default function Dashboard({ t, lang }) {
         const quotes = await fetchQuotations('pending_approval') || [];
         const chs = await fetchChannels() || [];
 
-        setHistoryLogs(history.slice(0, 10)); // Top 10 items
+        setHistoryLogs(history.slice(0, 10));
         setChannels(chs);
 
         setMetrics({
@@ -68,38 +68,33 @@ export default function Dashboard({ t, lang }) {
       value: metrics.activeChats, 
       change: 'Active Now', 
       icon: MessageSquare,
-      color: 'text-accent-teal'
+      color: 'text-primary'
     },
     { 
       label: t('wa-leads'), 
       value: metrics.leadsCount, 
       change: '+8 new', 
       icon: Users,
-      color: 'text-accent-green'
+      color: 'text-accent-success'
     },
     { 
       label: t('wa-quotations'), 
       value: metrics.pendingQuotes, 
       change: 'Awaiting review', 
       icon: ShieldAlert,
-      color: 'text-accent-purple'
+      color: 'text-accent-gold'
     }
   ];
 
-  // A channel row existing in the DB only means "Sambung Nombor Baru" was
-  // clicked — it does NOT mean the WhatsApp gateway ever actually connected
-  // it (that only happens after the QR scan succeeds). Only ch.status ===
-  // 'connected' means the number is actually live; counting all rows here
-  // previously showed "Connected" even when nothing had ever scanned a QR.
   const connectedChannels = channels.filter((ch) => ch.status === 'connected');
 
   return (
     <div className="space-y-6">
       {/* WhatsApp Connection Indicator */}
-      <div className="glass-panel p-4 flex items-center justify-between glow-purple">
+      <div className="glass-card p-4 flex items-center justify-between glow-primary">
         <div className="flex items-center space-x-3">
           <div className="relative">
-            <div className={`w-3 h-3 rounded-full ${connectedChannels.length > 0 ? 'bg-accent-green pulse-green' : 'bg-accent-red'}`} />
+            <div className={`w-3 h-3 rounded-full ${connectedChannels.length > 0 ? 'bg-accent-success pulse-green' : 'bg-accent-danger'}`} />
           </div>
           <div>
             <h4 className="text-sm font-semibold">WhatsApp AI Gateway</h4>
@@ -113,11 +108,11 @@ export default function Dashboard({ t, lang }) {
         </div>
         <div className="flex items-center space-x-2">
           {connectedChannels.length > 0 ? (
-            <span className="flex items-center text-xs text-accent-green bg-accent-green/10 px-2.5 py-1 rounded-full font-medium">
+            <span className="flex items-center text-xs text-accent-success bg-accent-success/10 px-2.5 py-1 rounded-full font-medium">
               <Wifi className="w-3.5 h-3.5 mr-1" /> Connected
             </span>
           ) : (
-            <span className="flex items-center text-xs text-accent-red bg-accent-red/10 px-2.5 py-1 rounded-full font-medium">
+            <span className="flex items-center text-xs text-accent-danger bg-accent-danger/10 px-2.5 py-1 rounded-full font-medium">
               <WifiOff className="w-3.5 h-3.5 mr-1" /> Offline
             </span>
           )}
@@ -132,13 +127,13 @@ export default function Dashboard({ t, lang }) {
             <div key={idx} className="glass-card p-5 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">{s.label}</span>
-                <div className={`p-2 rounded-lg bg-card-border ${s.color}`}>
+                <div className={`p-2 rounded-lg bg-surface-raised ${s.color}`}>
                   <Icon className="w-4.5 h-4.5" />
                 </div>
               </div>
               <div className="mt-4 flex items-baseline justify-between">
                 <span className="text-3xl font-bold tracking-tight">{s.value}</span>
-                <span className="text-xs font-medium text-accent-green flex items-center bg-accent-green/5 px-2 py-0.5 rounded">
+                <span className="text-xs font-medium text-accent-success flex items-center bg-accent-success/5 px-2 py-0.5 rounded">
                   <ArrowUpRight className="w-3 h-3 mr-0.5" /> {s.change}
                 </span>
               </div>
@@ -158,7 +153,7 @@ export default function Dashboard({ t, lang }) {
             </div>
             <div className="flex space-x-3 text-xs">
               <span className="flex items-center"><span className="w-2.5 h-2.5 rounded-full bg-primary mr-1.5" /> Total Chats</span>
-              <span className="flex items-center"><span className="w-2.5 h-2.5 rounded-full bg-accent-teal mr-1.5" /> Unresolved</span>
+              <span className="flex items-center"><span className="w-2.5 h-2.5 rounded-full bg-accent-gold mr-1.5" /> Unresolved</span>
             </div>
           </div>
           
@@ -167,22 +162,22 @@ export default function Dashboard({ t, lang }) {
               <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorChats" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6C63FF" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#6C63FF" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorUnresolved" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#C9A961" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#C9A961" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="day" stroke="#4b5563" fontSize={11} tickLine={false} />
-                <YAxis stroke="#4b5563" fontSize={11} tickLine={false} />
+                <XAxis dataKey="day" stroke="#5E6470" fontSize={11} tickLine={false} />
+                <YAxis stroke="#5E6470" fontSize={11} tickLine={false} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'rgba(10, 15, 28, 0.95)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#12151B', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#E8E9EC' }}
                   itemStyle={{ fontSize: '12px' }}
                 />
-                <Area type="monotone" dataKey="chats" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorChats)" />
-                <Area type="monotone" dataKey="unresolved" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} fill="url(#colorUnresolved)" />
+                <Area type="monotone" dataKey="chats" stroke="#6C63FF" strokeWidth={2} fillOpacity={1} fill="url(#colorChats)" />
+                <Area type="monotone" dataKey="unresolved" stroke="#C9A961" strokeWidth={2} fillOpacity={1} fill="url(#colorUnresolved)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -201,20 +196,20 @@ export default function Dashboard({ t, lang }) {
           <div className="flex-1 overflow-y-auto space-y-3 pr-1 max-h-64">
             {historyLogs.length > 0 ? (
               historyLogs.map((log, idx) => (
-                <div key={idx} className="flex items-start justify-between p-2.5 rounded bg-card-border/30 hover:bg-card-border/50 transition-colors text-xs">
+                <div key={idx} className="flex items-start justify-between p-2.5 rounded bg-surface-raised hover:bg-surface-raised/80 transition-colors text-xs">
                   <div className="space-y-1">
                     <span className="font-semibold">{log.agent}</span>
-                    <span className="text-[10px] text-text-muted block">{log.timestamp}</span>
+                    <span className="text-[10px] text-text-faint block">{log.timestamp}</span>
                   </div>
                   <div className="text-right space-y-1">
-                    <span className="px-2 py-0.5 rounded bg-primary/10 text-primary-hover font-mono text-[10px]">{log.model}</span>
-                    <span className="text-[10px] text-accent-green font-medium block">{log.speed}</span>
+                    <span className="px-2 py-0.5 rounded bg-primary-subtle text-primary font-mono text-[10px]">{log.model}</span>
+                    <span className="text-[10px] text-accent-success font-medium block">{log.speed}</span>
                   </div>
                 </div>
               ))
             ) : (
               <div className="h-full flex items-center justify-center text-xs text-text-muted py-12">
-                No recent activity.
+                No recent activity. Mula dengan menghantar arahan kerja di tab Arahan Kerja.
               </div>
             )}
           </div>

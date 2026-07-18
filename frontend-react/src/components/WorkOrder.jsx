@@ -10,13 +10,13 @@ function uid() {
 
 function AgentResultBlock({ result }) {
   return (
-    <div className="space-y-2 p-3 bg-background/50 border border-card-border rounded-lg">
+    <div className="space-y-2 p-3 bg-surface-raised border border-border rounded-lg">
       <div className="flex items-center justify-between text-xs">
         <span className="font-bold flex items-center">
           <Bot className="w-3.5 h-3.5 mr-1.5 text-primary" />
           {result.agent}
         </span>
-        <span className="font-mono text-[10px] text-text-muted">{result.speed}</span>
+        <span className="font-mono text-[10px] text-text-faint">{result.speed}</span>
       </div>
       <p className="font-mono text-xs text-text-muted leading-relaxed whitespace-pre-wrap">
         {result.result}
@@ -27,7 +27,7 @@ function AgentResultBlock({ result }) {
             key={idx}
             src={`data:${artifact.mime_type || 'image/png'};base64,${artifact.data_base64}`}
             alt={artifact.caption || 'Imej dijana'}
-            className="rounded-lg border border-card-border max-w-full mt-2"
+            className="rounded-lg border border-border max-w-full mt-2"
           />
         ) : (
           <div key={idx} className="flex items-center text-[10px] text-text-muted space-x-1.5">
@@ -46,13 +46,13 @@ function ChatBubble({ message }) {
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[85%] rounded-lg p-3 text-xs space-y-2 ${
         isUser
-          ? 'bg-primary/20 border border-primary/20 text-text'
+          ? 'bg-primary-subtle border border-primary/20 text-text'
           : message.isError
-            ? 'bg-accent-red/10 border border-accent-red/20 text-text'
-            : 'bg-card border border-card-border text-text'
+            ? 'bg-accent-danger/10 border border-accent-danger/20 text-text'
+            : 'bg-surface border border-border text-text'
       }`}>
         <div className="flex items-center space-x-1.5 text-[10px] text-text-muted">
-          {isUser ? <User className="w-3 h-3 text-accent-teal" /> : <Bot className="w-3 h-3 text-primary-hover" />}
+          {isUser ? <User className="w-3 h-3 text-primary" /> : <Bot className="w-3 h-3 text-primary" />}
           <span className="font-semibold">{isUser ? 'Bos' : 'Claudia'}</span>
         </div>
 
@@ -67,7 +67,7 @@ function ChatBubble({ message }) {
 
         {!isUser && !message.pending && message.isError && (
           <div className="flex items-start space-x-2">
-            <AlertCircle className="w-3.5 h-3.5 text-accent-red mt-0.5 flex-shrink-0" />
+            <AlertCircle className="w-3.5 h-3.5 text-accent-danger mt-0.5 flex-shrink-0" />
             <p className="leading-relaxed text-text-muted">{message.content}</p>
           </div>
         )}
@@ -177,8 +177,8 @@ export default function WorkOrder({ t }) {
   }
 
   return (
-    <div className="glass-panel flex flex-col h-[75vh] overflow-hidden">
-      <div className="p-4 border-b border-card-border flex items-center justify-between">
+    <div className="glass-card flex flex-col h-[75vh] overflow-hidden">
+      <div className="p-4 border-b border-border flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-sm flex items-center">
             <Bot className="w-4 h-4 mr-2 text-primary" />
@@ -189,7 +189,7 @@ export default function WorkOrder({ t }) {
         <button
           onClick={handleClear}
           title="Kosongkan perbualan"
-          className="text-text-muted hover:text-accent-red transition-colors"
+          className="text-text-muted hover:text-accent-danger transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -204,20 +204,20 @@ export default function WorkOrder({ t }) {
           messages.map((m) => <ChatBubble key={m.id} message={m} />)
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-2 py-24">
-            <Bot className="w-10 h-10 text-card-border" />
+            <Bot className="w-10 h-10 text-border" />
             <p className="text-xs">{t('log-empty')}</p>
           </div>
         )}
         <div ref={threadEndRef} />
       </div>
 
-      <div className="p-4 border-t border-card-border bg-card/20 space-y-2">
+      <div className="p-4 border-t border-border bg-surface space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-[10px] font-semibold text-text-muted">{t('enjin-ai')}</label>
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="bg-background border border-card-border focus:border-primary/50 outline-none px-2 py-1 rounded text-[10px] text-text"
+            className="bg-background border border-border focus:border-primary/50 outline-none px-2 py-1 rounded text-[10px] text-text"
           >
             <option value="gpt-4o-mini">GPT-4o mini (Recommended)</option>
             <option value="gpt-4o">GPT-4o</option>
@@ -237,7 +237,7 @@ export default function WorkOrder({ t }) {
             rows={2}
             placeholder={t('placeholder-arahan')}
             disabled={sending}
-            className="flex-1 resize-none bg-background/50 border border-card-border focus:border-primary/50 outline-none rounded-lg p-2.5 text-xs text-text transition-colors"
+            className="flex-1 resize-none input-field"
           />
           <button
             onClick={handleSend}

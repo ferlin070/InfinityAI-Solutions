@@ -1,9 +1,9 @@
 import React from 'react';
 import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip 
 } from 'recharts';
 import { 
-  ThumbsUp, MessageCircle, Hourglass, Percent, TrendingUp, AlertTriangle, Lightbulb 
+  ThumbsUp, MessageCircle, Hourglass, Percent, Lightbulb 
 } from 'lucide-react';
 
 const topicsData = [
@@ -32,19 +32,19 @@ export default function Analytics() {
         <div className="glass-card p-5 space-y-2">
           <div className="flex items-center justify-between text-text-muted">
             <span className="text-xs font-semibold uppercase tracking-wider">Avg. Response Time</span>
-            <Hourglass className="w-4 h-4 text-accent-teal" />
+            <Hourglass className="w-4 h-4 text-primary" />
           </div>
           <p className="text-3xl font-bold tracking-tight">1.8s</p>
-          <span className="text-[10px] text-accent-green bg-accent-green/5 px-2 py-0.5 rounded">Fast SLA compliance</span>
+          <span className="text-[10px] text-accent-success bg-accent-success/5 px-2 py-0.5 rounded">Fast SLA compliance</span>
         </div>
 
         <div className="glass-card p-5 space-y-2">
           <div className="flex items-center justify-between text-text-muted">
             <span className="text-xs font-semibold uppercase tracking-wider">Resolution Rate</span>
-            <Percent className="w-4 h-4 text-accent-green" />
+            <Percent className="w-4 h-4 text-accent-success" />
           </div>
           <p className="text-3xl font-bold tracking-tight">88.4%</p>
-          <span className="text-[10px] text-accent-green bg-accent-green/5 px-2 py-0.5 rounded">+2.1% from yesterday</span>
+          <span className="text-[10px] text-accent-success bg-accent-success/5 px-2 py-0.5 rounded">+2.1% from yesterday</span>
         </div>
 
         <div className="glass-card p-5 space-y-2">
@@ -59,10 +59,10 @@ export default function Analytics() {
         <div className="glass-card p-5 space-y-2">
           <div className="flex items-center justify-between text-text-muted">
             <span className="text-xs font-semibold uppercase tracking-wider">Sentiment Score</span>
-            <ThumbsUp className="w-4 h-4 text-accent-purple" />
+            <ThumbsUp className="w-4 h-4 text-accent-success" />
           </div>
           <p className="text-3xl font-bold tracking-tight">Positive (94%)</p>
-          <span className="text-[10px] text-accent-purple bg-accent-purple/5 px-2 py-0.5 rounded">High customer confidence</span>
+          <span className="text-[10px] text-accent-success bg-accent-success/5 px-2 py-0.5 rounded">High customer confidence</span>
         </div>
       </div>
 
@@ -77,19 +77,19 @@ export default function Analytics() {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topicsData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                <XAxis type="number" stroke="#4b5563" fontSize={11} tickLine={false} />
-                <YAxis dataKey="topic" type="category" stroke="#4b5563" fontSize={11} tickLine={false} width={80} />
+                <XAxis type="number" stroke="#5E6470" fontSize={11} tickLine={false} />
+                <YAxis dataKey="topic" type="category" stroke="#5E6470" fontSize={11} tickLine={false} width={80} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'rgba(10, 15, 28, 0.95)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#12151B', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#E8E9EC' }}
                   itemStyle={{ fontSize: '12px' }}
                 />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="count" fill="#6C63FF" radius={[0, 4, 4, 0]} barSize={12} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Traffic Load Heatmap / Graph */}
+        {/* Traffic Load Graph */}
         <div className="glass-card p-5 space-y-4">
           <div>
             <h3 className="text-base font-semibold">Trafik Waktu Puncak / Hourly Peak Traffic</h3>
@@ -98,13 +98,13 @@ export default function Analytics() {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourlyTraffic} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
-                <XAxis dataKey="hour" stroke="#4b5563" fontSize={11} tickLine={false} />
-                <YAxis stroke="#4b5563" fontSize={11} tickLine={false} />
+                <XAxis dataKey="hour" stroke="#5E6470" fontSize={11} tickLine={false} />
+                <YAxis stroke="#5E6470" fontSize={11} tickLine={false} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'rgba(10, 15, 28, 0.95)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#fff' }}
+                  contentStyle={{ backgroundColor: '#12151B', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#E8E9EC' }}
                   itemStyle={{ fontSize: '12px' }}
                 />
-                <Bar dataKey="load" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={20} />
+                <Bar dataKey="load" fill="#C9A961" radius={[4, 4, 0, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -112,8 +112,8 @@ export default function Analytics() {
       </div>
 
       {/* AI Recommendations card */}
-      <div className="glass-panel p-5 space-y-3 border border-primary/20">
-        <h4 className="text-xs font-bold text-primary-hover uppercase tracking-wider flex items-center">
+      <div className="glass-card p-5 space-y-3 border border-primary/10 glow-primary">
+        <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center">
           <Lightbulb className="w-4 h-4 mr-2" />
           Cadangan Pintar Ejen / AI Operations Insights
         </h4>

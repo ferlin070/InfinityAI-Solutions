@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Package, Plus, Pencil, Trash2, Save, X, CheckCircle } from 'lucide-react';
+import { Building2, Package, Plus, Pencil, Trash2, Save, X } from 'lucide-react';
 import { fetchBusinessProfile, updateBusinessProfile, fetchProducts, createProduct, updateProduct, deleteProduct } from '../api';
 
 export default function BusinessConfig({ t }) {
@@ -107,7 +107,7 @@ export default function BusinessConfig({ t }) {
       {/* Left — Company Profile */}
       <div className="lg:col-span-2 space-y-4">
         <div className="glass-card p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-card-border pb-3">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center space-x-2">
               <Building2 className="w-4 h-4 text-primary" />
               <div>
@@ -118,7 +118,7 @@ export default function BusinessConfig({ t }) {
             <button
               onClick={handleSaveProfile}
               disabled={savingProfile}
-              className="flex items-center text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="btn-primary"
             >
               <Save className="w-3.5 h-3.5 mr-1" />
               {savingProfile ? t('bc-saving') : t('bc-save-profile')}
@@ -126,9 +126,12 @@ export default function BusinessConfig({ t }) {
           </div>
 
           {profileMsg && (
-            <div className={`p-2.5 rounded text-xs flex items-center ${profileMsg.type === 'success' ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-red/10 text-accent-red'}`}>
-              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-              {profileMsg.text}
+            <div className={`p-2.5 rounded text-xs flex items-center ${
+              profileMsg.type === 'success' 
+                ? 'bg-accent-success/10 text-accent-success' 
+                : 'bg-accent-danger/10 text-accent-danger'
+            }`}>
+              {profileMsg.type === 'success' ? '✓' : '✗'} {profileMsg.text}
             </div>
           )}
 
@@ -138,13 +141,13 @@ export default function BusinessConfig({ t }) {
                 <label className="text-xs font-semibold text-text-muted">{t('bc-company-name')}</label>
                 <input type="text" value={profile.company_name}
                   onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
-                  className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                  className="input-field" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-text-muted">{t('bc-industry')}</label>
                 <input type="text" value={profile.industry} placeholder={t('bc-industry-placeholder')}
                   onChange={(e) => setProfile({ ...profile, industry: e.target.value })}
-                  className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                  className="input-field" />
               </div>
             </div>
 
@@ -153,14 +156,14 @@ export default function BusinessConfig({ t }) {
               <textarea value={profile.description} placeholder={t('bc-description-placeholder')}
                 onChange={(e) => setProfile({ ...profile, description: e.target.value })}
                 rows={4}
-                className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs leading-relaxed" />
+                className="w-full bg-background border border-border focus:border-primary/50 outline-none p-2 rounded text-xs leading-relaxed" />
             </div>
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-text-muted">{t('bc-address')}</label>
               <input type="text" value={profile.address}
                 onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                className="input-field" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -168,13 +171,13 @@ export default function BusinessConfig({ t }) {
                 <label className="text-xs font-semibold text-text-muted">{t('bc-phone')}</label>
                 <input type="text" value={profile.phone}
                   onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                  className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                  className="input-field" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-text-muted">{t('bc-email')}</label>
                 <input type="email" value={profile.email}
                   onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                  className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                  className="input-field" />
               </div>
             </div>
 
@@ -183,13 +186,13 @@ export default function BusinessConfig({ t }) {
                 <label className="text-xs font-semibold text-text-muted">{t('bc-website')}</label>
                 <input type="text" value={profile.website}
                   onChange={(e) => setProfile({ ...profile, website: e.target.value })}
-                  className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                  className="input-field" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-text-muted">{t('bc-logo-url')}</label>
                 <input type="text" value={profile.logo_url}
                   onChange={(e) => setProfile({ ...profile, logo_url: e.target.value })}
-                  className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                  className="input-field" />
               </div>
             </div>
           </div>
@@ -199,7 +202,7 @@ export default function BusinessConfig({ t }) {
       {/* Right — Product Catalog */}
       <div className="lg:col-span-3 space-y-4">
         <div className="glass-card p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-card-border pb-3">
+          <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center space-x-2">
               <Package className="w-4 h-4 text-primary" />
               <div>
@@ -209,7 +212,7 @@ export default function BusinessConfig({ t }) {
             </div>
             {!showProductForm && (
               <button onClick={openAddProduct}
-                className="flex items-center text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-lg font-medium transition-colors">
+                className="btn-primary">
                 <Plus className="w-3.5 h-3.5 mr-1" />
                 {t('bc-add-product')}
               </button>
@@ -217,14 +220,17 @@ export default function BusinessConfig({ t }) {
           </div>
 
           {productMsg && (
-            <div className={`p-2.5 rounded text-xs flex items-center ${productMsg.type === 'success' ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-red/10 text-accent-red'}`}>
-              <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-              {productMsg.text}
+            <div className={`p-2.5 rounded text-xs flex items-center ${
+              productMsg.type === 'success' 
+                ? 'bg-accent-success/10 text-accent-success' 
+                : 'bg-accent-danger/10 text-accent-danger'
+            }`}>
+              {productMsg.type === 'success' ? '✓' : '✗'} {productMsg.text}
             </div>
           )}
 
           {showProductForm && (
-            <div className="p-4 bg-background/50 border border-card-border rounded-lg space-y-3">
+            <div className="p-4 bg-surface-raised border border-border rounded-lg space-y-3">
               <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">
                 {editingProduct ? t('bc-edit-product') : t('bc-add-product')}
               </h4>
@@ -233,35 +239,35 @@ export default function BusinessConfig({ t }) {
                   <label className="text-xs font-semibold text-text-muted">{t('bc-product-name')}</label>
                   <input type="text" value={productForm.name}
                     onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                    className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                    className="input-field" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-text-muted">{t('bc-product-price')}</label>
                   <input type="number" step="0.01" min="0" value={productForm.unit_price}
                     onChange={(e) => setProductForm({ ...productForm, unit_price: e.target.value })}
-                    className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                    className="input-field" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-text-muted">{t('bc-product-desc')}</label>
                   <input type="text" value={productForm.description}
                     onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                    className="input-field" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-text-muted">{t('bc-product-stock')}</label>
                   <input type="number" min="0" value={productForm.stock_qty}
                     onChange={(e) => setProductForm({ ...productForm, stock_qty: e.target.value })}
-                    className="w-full bg-background border border-card-border focus:border-primary/50 outline-none p-2 rounded text-xs text-text" />
+                    className="input-field" />
                 </div>
               </div>
               <div className="flex space-x-2 pt-1">
                 <button onClick={handleSaveProduct} disabled={savingProduct || !productForm.name}
-                  className="flex items-center text-xs bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50">
+                  className="btn-primary">
                   <Save className="w-3.5 h-3.5 mr-1" />
                   {savingProduct ? t('bc-saving') : t('bc-product-save')}
                 </button>
                 <button onClick={() => setShowProductForm(false)}
-                  className="flex items-center text-xs text-text-muted hover:text-text bg-card-border/20 border border-card-border px-3 py-1.5 rounded-lg transition-all">
+                  className="flex items-center text-xs text-text-muted hover:text-text border border-border px-3 py-1.5 rounded-lg transition-all hover:bg-surface-raised">
                   <X className="w-3.5 h-3.5 mr-1" />
                   {t('bc-product-cancel')}
                 </button>
@@ -270,14 +276,14 @@ export default function BusinessConfig({ t }) {
           )}
 
           {products.length === 0 ? (
-            <div className="p-6 text-center text-xs text-text-muted bg-card-border/10 rounded-lg">
+            <div className="p-6 text-center text-xs text-text-muted bg-surface rounded-lg">
               {t('bc-no-products')}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-card-border/50 text-text-muted font-semibold text-[10px] uppercase tracking-wider">
+                  <tr className="border-b border-border text-text-muted font-semibold text-[10px] uppercase tracking-wider">
                     <th className="text-left p-2">{t('bc-product-name')}</th>
                     <th className="text-left p-2">{t('bc-product-desc')}</th>
                     <th className="text-right p-2">{t('bc-product-price')}</th>
@@ -287,7 +293,7 @@ export default function BusinessConfig({ t }) {
                 </thead>
                 <tbody>
                   {products.map((p) => (
-                    <tr key={p.id} className="border-b border-card-border/20 hover:bg-card-border/10 transition-colors">
+                    <tr key={p.id} className="border-b border-border/50 hover:bg-surface-raised transition-colors">
                       <td className="p-2 font-semibold">{p.name}</td>
                       <td className="p-2 text-text-muted">{p.description || '-'}</td>
                       <td className="p-2 text-right font-mono">RM {parseFloat(p.unit_price).toFixed(2)}</td>
@@ -295,11 +301,11 @@ export default function BusinessConfig({ t }) {
                       <td className="p-2 text-right">
                         <div className="flex justify-end space-x-1">
                           <button onClick={() => openEditProduct(p)}
-                            className="p-1.5 rounded hover:bg-card-border/30 text-text-muted hover:text-accent-teal transition-all">
+                            className="p-1.5 rounded hover:bg-surface-raised text-text-muted hover:text-primary transition-all">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => handleDeleteProduct(p.id)}
-                            className="p-1.5 rounded hover:bg-card-border/30 text-text-muted hover:text-accent-red transition-all">
+                            className="p-1.5 rounded hover:bg-surface-raised text-text-muted hover:text-accent-danger transition-all">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>

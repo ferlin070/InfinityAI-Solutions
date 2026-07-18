@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Sliders, Settings as SettingsIcon, MessageSquare, 
-  TrendingUp, LogOut, Shield, Globe, Users, FileText, SlidersHorizontal,
-  Building2 
+  TrendingUp, LogOut, Shield, Globe, Users, FileText, Building2 
 } from 'lucide-react';
 import { translations } from './translations';
 import { checkMe, logout } from './api';
@@ -83,7 +82,7 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
       {/* Premium Header */}
-      <header className="glass-panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 glow-purple">
+      <header className="glass-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 glow-primary">
         <div className="space-y-1">
           <div className="flex items-center space-x-2 text-primary font-semibold tracking-wide text-xs">
             <Shield className="w-4 h-4" />
@@ -98,7 +97,7 @@ export default function App() {
             {/* Lang toggle */}
             <button 
               onClick={() => setLang(prev => prev === 'ms' ? 'en' : 'ms')}
-              className="flex items-center text-xs font-semibold text-text-muted hover:text-text bg-card-border/20 border border-card-border px-3 py-1.5 rounded-lg transition-all"
+              className="flex items-center text-xs font-semibold text-text-muted hover:text-text border border-border px-3 py-1.5 rounded-lg transition-all hover:bg-surface-raised"
             >
               <Globe className="w-3.5 h-3.5 mr-1" />
               {lang.toUpperCase()}
@@ -107,43 +106,46 @@ export default function App() {
             {/* Logout button */}
             <button 
               onClick={handleLogout}
-              className="flex items-center text-xs font-semibold text-accent-red hover:text-white hover:bg-accent-red/20 bg-accent-red/10 border border-accent-red/20 px-3 py-1.5 rounded-lg transition-all"
+              className="flex items-center text-xs font-semibold text-accent-danger hover:text-white hover:bg-accent-danger/20 bg-accent-danger/10 border border-accent-danger/20 px-3 py-1.5 rounded-lg transition-all"
             >
               <LogOut className="w-3.5 h-3.5 mr-1" />
               {t('log-keluar')}
             </button>
           </div>
-          <span className="text-[10px] text-text-muted font-mono">{currentDate}</span>
+          <span className="text-[10px] text-text-faint font-mono">{currentDate}</span>
         </div>
       </header>
 
       {/* Main Tabs Navigation */}
-      <nav className="flex space-x-1.5 overflow-x-auto bg-card-border/10 p-1.5 rounded-xl border border-card-border/30 max-w-fit">
-        {[
-          { id: 'dashboard', label: 'Dashboard', icon: Activity },
-          { id: 'workorder', label: t('tab-workorder'), icon: FileText },
-          { id: 'whatsapp', label: t('tab-whatsapp'), icon: MessageSquare },
-          { id: 'agents', label: 'Agent Config', icon: Sliders },
-          { id: 'business', label: t('tab-business'), icon: Building2 },
-          { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-          { id: 'settings', label: 'Settings', icon: SettingsIcon },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-1.5 text-xs px-4 py-2.5 rounded-lg transition-all whitespace-nowrap font-medium ${
-                activeTab === tab.id 
-                  ? 'bg-primary text-white font-semibold' 
-                  : 'text-text-muted hover:text-text hover:bg-card-border/10'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <nav className="flex space-x-1 overflow-x-auto border-b border-border pb-0 max-w-full relative">
+        <div className="flex space-x-1 min-w-0">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: Activity },
+            { id: 'workorder', label: t('tab-workorder'), icon: FileText },
+            { id: 'whatsapp', label: t('tab-whatsapp'), icon: MessageSquare },
+            { id: 'agents', label: 'Agent Config', icon: Sliders },
+            { id: 'business', label: t('tab-business'), icon: Building2 },
+            { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+            { id: 'settings', label: 'Settings', icon: SettingsIcon },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-1.5 text-xs px-3.5 py-2.5 transition-all whitespace-nowrap font-medium border-b-2 -mb-px ${
+                  isActive
+                    ? 'text-primary border-primary'
+                    : 'text-text-muted hover:text-text border-transparent hover:border-border-strong'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Content Area */}
@@ -154,21 +156,22 @@ export default function App() {
         {/* WhatsApp Subtabs nested page */}
         {activeTab === 'whatsapp' && (
           <div className="space-y-6">
-            <div className="flex space-x-1.5 border-b border-card-border/50 pb-3">
+            <div className="flex space-x-1 border-b border-border pb-0">
               {[
                 { id: 'conversations', label: t('wa-conversations'), icon: MessageSquare },
                 { id: 'leads', label: t('wa-leads'), icon: Users },
                 { id: 'quotations', label: t('wa-quotations'), icon: FileText },
               ].map((sub) => {
                 const Icon = sub.icon;
+                const isActive = waSubTab === sub.id;
                 return (
                   <button
                     key={sub.id}
                     onClick={() => setWaSubTab(sub.id)}
-                    className={`flex items-center space-x-1.5 text-xs px-3.5 py-2 rounded-lg transition-all ${
-                      waSubTab === sub.id 
-                        ? 'bg-primary/20 text-primary-hover font-semibold' 
-                        : 'text-text-muted hover:text-text'
+                    className={`flex items-center space-x-1.5 text-xs px-3.5 py-2.5 transition-all border-b-2 -mb-px ${
+                      isActive
+                        ? 'text-primary border-primary'
+                        : 'text-text-muted hover:text-text border-transparent hover:border-border-strong'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -193,7 +196,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="pt-6 border-t border-card-border/40 text-center text-[10px] text-text-muted font-mono flex items-center justify-between">
+      <footer className="pt-6 border-t border-border text-center text-[10px] text-text-faint font-mono flex items-center justify-between">
         <span>{t('footer-doc')}</span>
         <span>{t('footer-power')}</span>
       </footer>

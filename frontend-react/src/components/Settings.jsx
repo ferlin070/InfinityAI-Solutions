@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Wifi, WifiOff, Plus, Trash2, ShieldAlert, CheckCircle, 
-  HelpCircle, RefreshCw, Smartphone, Key, Terminal 
+  Wifi, WifiOff, Plus, Trash2, HelpCircle, Smartphone, Terminal 
 } from 'lucide-react';
 import { 
   fetchChannels, fetchCreateChannel, fetchChannelQR, fetchChannelStatus, fetchDeleteChannel 
@@ -16,7 +15,6 @@ const mockLogs = [
 export default function Settings({ t }) {
   const [channels, setChannels] = useState([]);
   const [phone, setPhone] = useState('');
-  const [activeChannelId, setActiveChannelId] = useState(null);
   const [qrCode, setQrCode] = useState(null);
   const [qrStatus, setQrStatus] = useState('');
   const [connecting, setConnecting] = useState(false);
@@ -42,8 +40,6 @@ export default function Settings({ t }) {
     try {
       const ch = await fetchCreateChannel(phone);
       if (ch && ch.id) {
-        setActiveChannelId(ch.id);
-        // Start polling for QR
         pollQR(ch.id);
       }
     } catch (e) {
@@ -58,7 +54,7 @@ export default function Settings({ t }) {
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts++;
-      if (attempts > 12) { // 1 minute max
+      if (attempts > 12) {
         clearInterval(interval);
         setQrStatus('Masa tamat. Sila cuba lagi.');
         return;
@@ -66,10 +62,9 @@ export default function Settings({ t }) {
       try {
         const qrRes = await fetchChannelQR(channelId);
         if (qrRes && qrRes.qr) {
-          setQrCode(qrRes.qr); // Base64 string
+          setQrCode(qrRes.qr);
           setQrStatus('Scan kod QR di bawah:');
           clearInterval(interval);
-          // Now poll for status check
           pollStatus(channelId);
         } else {
           setQrStatus('Menunggu kod QR dijana...');
@@ -123,12 +118,12 @@ export default function Settings({ t }) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+60123456789"
-              className="flex-1 max-w-xs bg-background border border-card-border focus:border-primary/50 outline-none p-2.5 rounded text-xs text-text"
+              className="input-field max-w-xs"
             />
             <button 
               onClick={handleConnect}
               disabled={connecting || !phone.trim()}
-              className="flex items-center text-xs bg-primary hover:bg-primary-hover text-white px-4 py-2.5 rounded font-semibold transition-colors disabled:opacity-50"
+              className="btn-primary"
             >
               <Plus className="w-4 h-4 mr-1.5" />
               {connecting ? 'Menyambung...' : t('wa-connect-btn')}
@@ -136,8 +131,8 @@ export default function Settings({ t }) {
           </div>
 
           {qrStatus && (
-            <div className="p-4 bg-background/50 border border-card-border rounded-lg flex flex-col items-center space-y-3">
-              <span className="text-xs font-semibold text-accent-teal">{qrStatus}</span>
+            <div className="p-4 bg-surface-raised border border-border rounded-lg flex flex-col items-center space-y-3">
+              <span className="text-xs font-semibold text-primary">{qrStatus}</span>
               {qrCode && (
                 <div className="bg-white p-2 rounded-lg">
                   <img 
@@ -150,7 +145,6 @@ export default function Settings({ t }) {
             </div>
           )}
 
-          {/* Active channels list */}
           <div className="space-y-3 pt-2">
             <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">
               Nombor Disambungkan
@@ -158,17 +152,14 @@ export default function Settings({ t }) {
             <div className="space-y-2">
               {channels.length > 0 ? (
                 channels.map((ch) => {
-                  // ch.status must drive this badge, not a hardcoded string —
-                  // a channel row existing in the DB does not mean the
-                  // WhatsApp gateway ever actually connected it.
                   const statusMeta = {
-                    connected: { icon: Wifi, color: 'text-accent-green', label: 'Connected & Active' },
-                    pending_qr: { icon: HelpCircle, color: 'text-accent-purple', label: 'Menunggu imbasan QR' },
-                    disconnected: { icon: WifiOff, color: 'text-accent-red', label: 'Terputus' },
+                    connected: { icon: Wifi, color: 'text-accent-success', label: 'Connected & Active' },
+                    pending_qr: { icon: HelpCircle, color: 'text-accent-gold', label: 'Menunggu imbasan QR' },
+                    disconnected: { icon: WifiOff, color: 'text-accent-danger', label: 'Terputus' },
                   }[ch.status] || { icon: WifiOff, color: 'text-text-muted', label: ch.status || 'Unknown' };
                   const StatusIcon = statusMeta.icon;
                   return (
-                    <div key={ch.id} className="flex items-center justify-between p-3 rounded bg-card-border/20 border border-card-border/30">
+                    <div key={ch.id} className="flex items-center justify-between p-3 rounded bg-surface-raised border border-border">
                       <div className="flex items-center space-x-3">
                         <Smartphone className="w-4 h-4 text-text-muted" />
                         <div className="text-xs">
@@ -180,7 +171,7 @@ export default function Settings({ t }) {
                       </div>
                       <button
                         onClick={() => handleDisconnect(ch.id)}
-                        className="text-text-muted hover:text-accent-red p-2 rounded hover:bg-card-border/30 transition-all"
+                        className="text-text-muted hover:text-accent-danger p-2 rounded hover:bg-surface-raised transition-all"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -188,7 +179,7 @@ export default function Settings({ t }) {
                   );
                 })
               ) : (
-                <div className="p-4 text-center text-xs text-text-muted bg-card-border/10 rounded">
+                <div className="p-4 text-center text-xs text-text-muted bg-surface rounded">
                   {t('wa-no-channels')}
                 </div>
               )}
@@ -199,7 +190,7 @@ export default function Settings({ t }) {
 
       {/* Right Column - Error & Log Monitor */}
       <div className="glass-card p-5 space-y-4 h-fit">
-        <div className="flex items-center justify-between border-b border-card-border pb-3">
+        <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
             <h3 className="text-base font-semibold">Log Ralat & Sistem</h3>
             <p className="text-xs text-text-muted">Aktiviti diagnostik pelayan masa nyata.</p>
@@ -209,18 +200,18 @@ export default function Settings({ t }) {
 
         <div className="space-y-3">
           {mockLogs.map((log, idx) => (
-            <div key={idx} className="p-3 bg-background/50 border border-card-border rounded text-xs space-y-1">
+            <div key={idx} className="p-3 bg-surface-raised border border-border rounded text-xs space-y-1">
               <div className="flex items-center justify-between">
                 <span className={`px-2 py-0.5 rounded font-mono text-[9px] font-semibold ${
                   log.type === 'ERROR' 
-                    ? 'bg-accent-red/10 text-accent-red' 
+                    ? 'bg-accent-danger/10 text-accent-danger' 
                     : log.type === 'WARNING' 
-                      ? 'bg-accent-purple/10 text-accent-purple' 
-                      : 'bg-accent-teal/10 text-accent-teal'
+                      ? 'bg-accent-gold/10 text-accent-gold' 
+                      : 'bg-accent-success/10 text-accent-success'
                 }`}>
                   {log.type}
                 </span>
-                <span className="text-[9px] text-text-muted font-mono">{log.time}</span>
+                <span className="text-[9px] text-text-faint font-mono">{log.time}</span>
               </div>
               <p className="font-mono text-[11px] text-text-muted leading-relaxed">
                 {log.msg}
