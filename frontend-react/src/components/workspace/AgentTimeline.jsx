@@ -182,7 +182,7 @@ function GenericStep({ step }) {
   );
 }
 
-export default function AgentTimeline({ steps = [] }) {
+export default function AgentTimeline({ steps = [], onApprove, onReject }) {
   if (!steps.length) {
     return (
       <div className="text-[11px] text-text-muted text-center py-12">
@@ -220,7 +220,7 @@ export default function AgentTimeline({ steps = [] }) {
               {s.kind === 'plan' && <PlanStep step={s} />}
               {s.kind === 'validation' && <ValidationStep step={s} />}
               {s.kind === 'reflection' && <ReflectionStep step={s} />}
-              {s.kind === 'approval' && <ApprovalStep step={s} />}
+              {s.kind === 'approval' && <ApprovalStep step={s} onApprove={onApprove} onReject={onReject} />}
               {s.kind === 'tool_retry' && <GenericStep step={s} />}
               {s.kind === 'tool_fallback' && <GenericStep step={s} />}
               {!['plan', 'validation', 'reflection', 'approval', 'tool_retry', 'tool_fallback'].includes(s.kind) && (

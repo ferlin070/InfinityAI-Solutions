@@ -45,7 +45,7 @@ export default function AgentWorkspace({
 
   const handleSend = async () => {
     const p = prompt.trim();
-    if (!p || !state.finished === false) return; // allow re-send after finish
+    if (!p || !state.finished === false) return;
     setPrompt('');
     const newHistory = [...history, { role: 'user', content: p }];
     setHistory(newHistory);
@@ -56,6 +56,37 @@ export default function AgentWorkspace({
   const handleClear = () => {
     setHistory([]);
     onHistoryChange?.([]);
+  };
+
+  const handleApproval = async (approvalId, approved, reason) => {
+    try {
+      const res = await fetch('/api/chat/approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          approval_id: approvalId,
+          decision: { approved, reason: reason || '' },
+        }),
+      });
+      if (!res.ok) {
+        console.error('Approval POST failed:', res.status, res.statusText);
+      }
+    } catch (e) {
+      console.error('Approval POST error:', e);
+    }
+  };
+
+  const onApprove = (details) => {
+    if (details?.approval_id) {
+      handleApproval(details.approval_id, true, 'Approved by user');
+    }
+  };
+
+  const onReject = (details) => {
+    if (details?.approval_id) {
+      handleApproval(details.approval_id, false, 'Rejected by user');
+    }
   };
 
   const elapsed = formatElapsed(state.elapsedMs);
@@ -77,7 +108,7 @@ export default function AgentWorkspace({
               </div>
             ) : (
               <>
-                <AgentTimeline steps={state.steps} />
+                <AgentTimeline steps={state.steps} onApprove={onApprove} onReject={onReject} />
                 {state.messages.map((m) => (
                   <article key={m.id} className="border border-border rounded-lg bg-surface-raised/40 p-3">
                     <div className="flex items-center gap-1.5 text-[10px] text-text-muted mb-1">

@@ -46,23 +46,20 @@ def test_chat_stream_emits_events_then_final_and_persists_turns():
     session_cookie = _login()
     fake_response = ExecuteResponse(status="chat", message="Hai Bos!", model="gpt-4o-mini")
 
-    with patch("src.api.routes.TaskExecutionFlow") as MockFlow, \
+    with patch("src.api.routes.TaskExecutionFlowV2") as MockFlow, \
          patch("src.api.routes.dashboard_memory") as mock_memory:
         mock_memory.get_recent.return_value = []
         instance = MockFlow.return_value
 
-        # Capture the on_event callback TaskExecutionFlow(on_event=...) was
-        # constructed with, so kickoff() can emit a progress event through it
-        # exactly like the real flow does before returning its final result.
         def _flow_ctor(on_event=None):
             _flow_ctor.on_event = on_event
             return instance
         MockFlow.side_effect = _flow_ctor
 
-        def _kickoff(inputs):
-            _flow_ctor.on_event("status", {"text": "Claudia sedang menganalisis..."})
+        def _run(**kwargs):
+            _flow_ctor.on_event("status", {"text": "Planner sedang menganalisis..."})
             return fake_response
-        instance.kickoff.side_effect = _kickoff
+        instance.run.side_effect = _run
 
         response = client.post(
             "/api/chat/stream",
@@ -85,10 +82,10 @@ def test_chat_stream_emits_events_then_final_and_persists_turns():
 def test_chat_stream_reports_error_event_on_exception():
     session_cookie = _login()
 
-    with patch("src.api.routes.TaskExecutionFlow") as MockFlow, \
+    with patch("src.api.routes.TaskExecutionFlowV2") as MockFlow, \
          patch("src.api.routes.dashboard_memory") as mock_memory:
         mock_memory.get_recent.return_value = []
-        MockFlow.return_value.kickoff.side_effect = RuntimeError("boom")
+        MockFlow.return_value.run.side_effect = RuntimeError("boom")
 
         response = client.post(
             "/api/chat/stream",
@@ -108,12 +105,11 @@ def test_chat_stream_times_out_if_background_flow_never_responds():
     unbounded hang."""
     session_cookie = _login()
 
-    with patch("src.api.routes.TaskExecutionFlow") as MockFlow, \
+    with patch("src.api.routes.TaskExecutionFlowV2") as MockFlow, \
          patch("src.api.routes.dashboard_memory") as mock_memory, \
          patch("src.api.routes.CHAT_STREAM_TIMEOUT_S", 0.05):
         mock_memory.get_recent.return_value = []
-        # Never calls on_event and never returns — simulates a truly stuck call.
-        MockFlow.return_value.kickoff.side_effect = lambda inputs: __import__("time").sleep(5)
+        MockFlow.return_value.run.side_effect = lambda **kw: __import__("time").sleep(5)
 
         response = client.post(
             "/api/chat/stream",

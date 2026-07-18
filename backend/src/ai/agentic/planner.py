@@ -59,6 +59,15 @@ SKEMA OUTPUT (WAJIB ikut format ini):
   ]
 }
 
+GUID KELULUSAN (approval_required):
+- Tetapkan `approval_required: true` jika subtask melibatkan:
+  * Mengemas kini profil perniagaan (DB Update Business Profile)
+  * Meluluskan sebut harga (DB Approve Quotation)
+  * Mencipta produk baru (DB Create Product)
+  * Sebarang operasi yang mengubah data sensitif atau tak boleh balik
+- Untuk operasi baca (read/list/get), baki `approval_required: false`.
+- Untuk operasi tulis ringan (tags, lead upsert), baki `approval_required: false`.
+
 PANDUAN MEMILIH EJEN:
 - CLAUDIA — tidak pernah pilih sebagai agent_key. Claudia adalah router.
 - MAYA — sales, CRM, sebut harga, prospek, customer history.
