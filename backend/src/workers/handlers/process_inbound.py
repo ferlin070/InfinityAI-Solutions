@@ -39,6 +39,7 @@ def process_inbound(job: dict) -> None:
         sender="customer",
         body=body,
         external_id=message_id,
+        channel_id=channel_id,
     )
 
     last_msgs = msg_repo.list_by_conversation(ORG_ID, conversation["id"], limit=20)

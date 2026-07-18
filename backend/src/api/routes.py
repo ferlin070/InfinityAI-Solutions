@@ -1,14 +1,22 @@
+import asyncio
 import json
 import os
+import queue
+import threading
 from fastapi import APIRouter, HTTPException, Cookie, Response, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
-from src.core.config import LOG_FILE, FRONTEND_DIR
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, StreamingResponse
+from src.core.config import LOG_FILE, FRONTEND_DIR, logger
 from src.core import config
 from src.schemas.models import ExecuteResponse, ExecutionRequest, UserLogin
 from src.ai.flows.task_execution_flow import TaskExecutionFlow
 from src.core.sessions import verify_session, create_session, destroy_session
+from src.services import dashboard_memory
 
 router = APIRouter()
+
+# Bounds how long an /api/chat/stream client waits with zero events before
+# giving up — see chat_stream() below. Module-level so tests can tune it down.
+CHAT_STREAM_TIMEOUT_S = 180
 
 # Rate limiter configuration & helper functions
 from datetime import datetime, timedelta
@@ -63,7 +71,7 @@ async def login_page(session_token: str | None = Cookie(None)):
     if verify_session(session_token):
         return RedirectResponse(url="/", status_code=303)
         
-    with open(os.path.join(FRONTEND_DIR, "login.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(FRONTEND_DIR, "index.html"), "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -148,6 +156,109 @@ async def create_execution(data: ExecutionRequest, session_token: str | None = C
     return await flow.kickoff_async(
         inputs={"prompt": data.prompt, "model": data.model, "org_id": None}
     )
+
+
+def _sse_frame(event_type: str, payload: dict) -> str:
+    return f"event: {event_type}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _flatten_execute_response(response: ExecuteResponse) -> str:
+    if response.status == "success" and response.results:
+        return "\n\n".join(f"[{r.agent}]: {r.result}" for r in response.results)
+    return response.message or ""
+
+
+@router.post("/api/chat/stream")
+async def chat_stream(data: ExecutionRequest, session_token: str | None = Cookie(None)):
+    """Chat with Claudia over a live SSE stream — the memory-aware, unified-UI
+    counterpart to /api/executions. Runs the (synchronous, blocking) CrewAI
+    flow in a background thread, bridging its `on_event` progress callbacks
+    and final result into the async response via a thread-safe queue, so the
+    frontend can render live activity ("Claudia sedang fikir...", "Danish
+    sedang menjana imej...") instead of waiting silently for the whole thing.
+    """
+    if not verify_session(session_token):
+        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
+
+    event_q: "queue.Queue[tuple[str, dict] | None]" = queue.Queue()
+
+    def emit(event_type: str, payload: dict) -> None:
+        event_q.put((event_type, payload))
+
+    def run_flow() -> None:
+        try:
+            history = dashboard_memory.get_recent()
+            flow = TaskExecutionFlow(on_event=emit)
+            response: ExecuteResponse = flow.kickoff(
+                inputs={
+                    "prompt": data.prompt,
+                    "model": data.model,
+                    "org_id": None,
+                    "history": history,
+                }
+            )
+            dashboard_memory.append_message("user", data.prompt)
+            dashboard_memory.append_message("assistant", _flatten_execute_response(response))
+            emit("final", response.model_dump())
+        except Exception as e:
+            logger.error(f"Ralat semasa chat stream: {e}", exc_info=True)
+            emit("error", {"message": "Ralat dalaman semasa memproses mesej."})
+        finally:
+            event_q.put(None)
+
+    threading.Thread(target=run_flow, daemon=True).start()
+
+    async def event_gen():
+        loop = asyncio.get_event_loop()
+        while True:
+            try:
+                # A stuck OpenAI/gateway call in run_flow's background thread would
+                # otherwise hang the SSE response (and the UI's spinner) forever
+                # with no feedback, since that thread can't be safely cancelled
+                # from here — this only bounds what the *client* waits for; the
+                # background thread itself is left to finish or fail on its own.
+                item = await asyncio.wait_for(
+                    loop.run_in_executor(None, event_q.get), timeout=CHAT_STREAM_TIMEOUT_S
+                )
+            except asyncio.TimeoutError:
+                logger.error("Chat stream timed out waiting for a response.")
+                yield _sse_frame("error", {"message": "Masa tamat menunggu balasan. Sila cuba lagi."})
+                break
+            if item is None:
+                break
+            event_type, payload = item
+            yield _sse_frame(event_type, payload)
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            # Without these, some reverse proxies (Railway's edge included, per
+            # observed production behavior) buffer the whole response instead of
+            # forwarding chunks as they're yielded — the client then sees nothing
+            # until the entire stream finishes, indistinguishable from a hang.
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.get("/api/chat/history")
+async def chat_history(session_token: str | None = Cookie(None)):
+    """Return the dashboard chat transcript to hydrate the UI on page load."""
+    if not verify_session(session_token):
+        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
+    return dashboard_memory.get_recent(n=40)
+
+
+@router.post("/api/chat/clear")
+async def chat_clear(session_token: str | None = Cookie(None)):
+    """Reset the dashboard chat's conversation memory."""
+    if not verify_session(session_token):
+        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
+    dashboard_memory.clear()
+    return {"status": "success"}
 
 
 @router.get("/manifest.json")

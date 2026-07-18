@@ -27,11 +27,28 @@ def test_claudia_backstory_preserves_routing_rule_forbidding_danish_for_sales():
     assert "JANGAN hantar tugasan JUALAN kepada DANISH" in backstory
 
 
+def test_claudia_backstory_has_chat_escape_hatch_before_rejection():
+    _, _, backstory = resolve_role_goal_backstory("CLAUDIA")
+    assert '"status": "chat"' in backstory
+    assert '"status": "rejected"' in backstory
+    # "chat" must be presented before "rejected" so Claudia treats it as the
+    # default fallback for ambiguous messages, not outright refusal.
+    assert backstory.index('"status": "chat"') < backstory.index('"status": "rejected"')
+
+
 def test_danish_backstory_preserves_helpful_tone():
     _, _, backstory = resolve_role_goal_backstory("DANISH")
     assert "mesra" in backstory
     assert "helpful" in backstory
     assert "copywriting" in backstory
+
+
+def test_danish_backstory_requires_image_tool_for_visual_requests():
+    _, _, backstory = resolve_role_goal_backstory("DANISH")
+    assert "Image Generation tool" in backstory
+    # Must explicitly forbid the failure mode observed in production: writing
+    # banner *copy* instead of actually calling the image tool.
+    assert "JANGAN" in backstory
 
 
 def test_lowercase_key_is_normalized():

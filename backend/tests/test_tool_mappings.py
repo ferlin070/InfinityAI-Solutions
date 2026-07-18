@@ -1,15 +1,9 @@
-"""Tests for the per-agent tool mapping. Verifies that the registry is
-internally consistent and that every static tool is actually exposed via
-`get_all_tools_for_agent` for its assigned agent."""
-
 import sys
 import os
 
-import pytest
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.ai.agents.tool_mappings import TOOL_MAPPINGS, get_tools_for_agent
+from src.ai.agents.tool_mappings import get_tools, STATIC_TOOL_MAPPINGS
 from src.ai.tools import (
     product_pricing_tool,
     contact_info_tool,
@@ -20,19 +14,21 @@ from src.ai.tools import (
 )
 
 
+# ─── Per-agent tool list ────────────────────────────────────────────────────
+
 def test_every_agent_in_registry_has_a_list():
     from src.core.constants import AGENTS
     for key in AGENTS:
-        assert key in TOOL_MAPPINGS, f"Agent {key} missing from TOOL_MAPPINGS"
-        assert isinstance(TOOL_MAPPINGS[key], list)
+        assert key in STATIC_TOOL_MAPPINGS, f"Agent {key} missing from STATIC_TOOL_MAPPINGS"
+        assert isinstance(STATIC_TOOL_MAPPINGS[key], list)
 
 
 def test_claudia_has_no_execution_tools():
-    assert TOOL_MAPPINGS["CLAUDIA"] == []
+    assert STATIC_TOOL_MAPPINGS["CLAUDIA"] == []
 
 
 def test_maya_has_pricing_and_workflow_tools():
-    maya = get_tools_for_agent("MAYA")
+    maya = STATIC_TOOL_MAPPINGS["MAYA"]
     assert product_pricing_tool in maya
     assert contact_info_tool in maya
     assert conversation_history_tool in maya
@@ -41,9 +37,35 @@ def test_maya_has_pricing_and_workflow_tools():
 
 
 def test_hakim_has_system_docs():
-    hakim = get_tools_for_agent("HAKIM")
-    assert system_documentation_tool in hakim
+    assert system_documentation_tool in STATIC_TOOL_MAPPINGS["HAKIM"]
 
 
-def test_get_tools_for_agent_unknown_key_returns_empty():
-    assert get_tools_for_agent("DOES_NOT_EXIST") == []
+def test_get_tools_for_unknown_key_returns_empty_list():
+    assert get_tools("DOES_NOT_EXIST") == []
+
+
+# ─── Image generation (upstream) ────────────────────────────────────────────
+
+def test_danish_gets_image_tool_only_when_collector_supplied():
+    without_collector = get_tools("DANISH", artifact_collector=None)
+    with_collector = get_tools("DANISH", artifact_collector=[])
+
+    assert without_collector == [t for t in without_collector if t.name != "Image Generation"]
+    assert any(t.name == "Image Generation" for t in with_collector)
+    assert len(with_collector) > len(without_collector)
+
+
+def test_other_agents_never_get_image_tool():
+    for agent_key in ["ZARA", "AIMAN", "AMELIA", "ADILA", "CLAUDIA", "MAYA", "HAKIM"]:
+        tools = get_tools(agent_key, artifact_collector=[])
+        assert all(t.name != "Image Generation" for t in tools), (
+            f"{agent_key} unexpectedly has Image Generation tool"
+        )
+
+
+def test_maya_static_tools_unaffected_by_collector():
+    maya_tools = get_tools("MAYA", artifact_collector=[])
+    assert product_pricing_tool in maya_tools
+    assert contact_info_tool in maya_tools
+    assert conversation_history_tool in maya_tools
+    assert all(t.name != "Image Generation" for t in maya_tools)

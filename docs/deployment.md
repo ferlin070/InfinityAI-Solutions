@@ -39,7 +39,8 @@ Also note: the root `Dockerfile` is configured to build the entire monolith (bac
 | `NVIDIA_NIM_API_KEY` | No (legacy) | `backend/src/services/llm.py` | Only powers the **deprecated** `/api/execute` endpoint (`orchestrator.py`), kept only as a rollback path. Not needed for the current `/api/executions` endpoint. |
 | `GAS_WEB_APP_URL`, `ZARA_DRIVE_FOLDER_ID`, `DANISH_DRIVE_FOLDER_ID`, `MAYA_DRIVE_FOLDER_ID`, `AMELIA_DRIVE_FOLDER_ID`, `AIMAN_DRIVE_FOLDER_ID`, `ADILA_DRIVE_FOLDER_ID`, `HAKIM_DRIVE_FOLDER_ID` | No (legacy) | `backend/src/services/drive.py` | Google Drive upload, used only by the deprecated orchestrator path. |
 | `PORT` | No | `backend/src/main.py`, `backend/Dockerfile` | Defaults to `7860` (Hugging Face Spaces convention). Railway/Render inject their own — the Dockerfile now respects `$PORT` (fixed as part of this guide; previously hardcoded). |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Not yet read anywhere | — | Placeholder names for when proposal-v2.md's `db/` layer lands. See §5. |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | **Yes, if using WhatsApp Ops** | `backend/src/db/client.py`, every repo under `backend/src/db/repositories/` (`wa_routes.py`'s `/api/channels`, `/api/conversations`, `/api/leads`, `/api/quotations`) | Despite `core/config.py`'s startup warning calling this "fail-open," `db/client.py` actually **raises** if either is unset — every WhatsApp Ops endpoint hard-fails (500) without a real Supabase project with `supabase/migrations/` applied. Not needed for the Work Order chat (`/api/executions`, `/api/chat/stream`), which has no DB dependency. |
+| `GATEWAY_SHARED_SECRET`, `GATEWAY_INTERNAL_URL`, `FASTAPI_WEBHOOK_URL` | **Yes, if using WhatsApp Ops** | `backend/src/channels/wa_webjs.py`, `backend/src/api/webhooks.py`, `gateway/src/*` | See §7 — the WhatsApp gateway is a **separate service** from the backend and needs its own deployment; these three variables are how the two services find and authenticate to each other outside of docker-compose's local network. |
 
 Copy `.env.example` → `.env` locally and fill in real values. `.env` is gitignored — never put real secrets in `.env.example`.
 
@@ -112,5 +113,47 @@ When that work starts:
 
 - **OpenAI `insufficient_quota`** — the current key has no billing configured. Confirmed via a real API call during implementation; not a code issue. Blocks real executions on every host until fixed.
 - **`crewai` adds ~580MB** to the backend's dependency tree (chromadb bindings, onnxruntime, litellm, a full `kubernetes` client — none of which this app actually uses; CrewAI pulls them in regardless). Well within Railway/Render free-tier build limits, just makes builds slower and images bigger than the dependency list alone would suggest.
-- **`docker-compose.yml`** is for local development only — Railway and Render build directly from `backend/Dockerfile` and ignore it.
+- **`docker-compose.yml`** is for local development only — Railway and Render build directly from `backend/Dockerfile` (or the root `Dockerfile`, see §0) and ignore it. That means `gateway-wa` is **not** deployed by §3's steps — see §7 to actually get WhatsApp working beyond local dev.
 - **`/api/execute` (legacy)** is still live, deprecated, kept only until the CrewAI replacement (`/api/executions`) has been in production a while. Don't wire new frontend code to it.
+
+---
+
+## 7. WhatsApp Gateway (whatsapp-web.js) deployment
+
+**Read this if "Sambung Nombor Baru" / WhatsApp Ops doesn't work in production.** §3 only deploys the backend — `gateway/` (the Node.js process that actually drives a headless Chrome WhatsApp Web session via `whatsapp-web.js`) has never been deployed anywhere outside `docker-compose.yml`'s local network. In production, the backend's `GATEWAY_INTERNAL_URL` points at a hostname (`gateway-wa`) that only exists inside docker-compose — every WhatsApp Ops call fails silently against it.
+
+This is **unofficial** WhatsApp automation (QR-code login via a real WhatsApp/WhatsApp Business app, not Meta's Business Cloud API) — it can get banned by WhatsApp for automation ToS violations. That trade-off was a deliberate choice to keep going (see prior discussion); this section only makes the existing approach actually reachable in production, it doesn't change what it is.
+
+### 7.1 Why this needs its own service, not a Railway/Render web dyno
+
+- `whatsapp-web.js` keeps a **persistent headless Chrome process alive** for as long as the WhatsApp session should stay logged in — it is not a stateless request/response API. Render's free tier spins down on idle (§3 Option B note) and would kill the browser session and disconnect WhatsApp.
+- The login session (`LocalAuth`, written to `.wwebjs_auth/`) must **survive redeploys** — without a persistent volume, every deploy forces a QR re-scan.
+
+### 7.2 Deploy `gateway/` as a second Railway service (same project as the backend)
+
+1. In the same Railway project as the backend: **New → GitHub Repo → same repo** again (Railway lets one repo back multiple services).
+2. Settings → **Root Directory:** `gateway`. Railway auto-detects `gateway/Dockerfile`.
+3. Settings → **Volumes** → add a volume mounted at `/app/.wwebjs_auth`. This is the persistent-session fix from §7.1 — skip this and every redeploy forces re-scanning the QR code.
+4. Variables tab, set on the **gateway** service:
+   - `GATEWAY_SHARED_SECRET` — a real random secret (`openssl rand -hex 32`), **the same value** as the backend service's `GATEWAY_SHARED_SECRET`. Treat it as a password between the two services — `gateway/src/index.js` now logs a startup warning if it's left at the insecure default.
+   - `FASTAPI_WEBHOOK_URL` — the backend service's public Railway URL + `/webhooks/wa-gateway`, e.g. `https://your-backend.up.railway.app/webhooks/wa-gateway`.
+   - Do **not** set `PORT` — Railway injects it automatically and `gateway/src/config.js` now respects it (previously it only read `GATEWAY_PORT`, which Railway never sets — the gateway would silently listen on the wrong port).
+5. Health check path (Settings → Healthcheck): `/healthz`.
+6. Deploy. Railway gives this service its own `*.up.railway.app` URL.
+7. Back on the **backend** service's Variables tab, set:
+   - `GATEWAY_INTERNAL_URL` — the gateway service's public Railway URL from step 6 (e.g. `https://your-gateway.up.railway.app`). Despite the name (kept for docker-compose compatibility), on Railway this is a public HTTPS URL, not a private hostname.
+   - `GATEWAY_SHARED_SECRET` — same value as step 4.
+8. Redeploy the backend service so it picks up the new variables.
+
+*(Railway also supports private networking between services in the same project via `<service-name>.railway.internal`, which would avoid exposing the gateway's HTTP API publicly — the shared-secret header is what currently guards it either way. Public URLs are the simpler, easier-to-verify-with-curl path above; switch to private networking as a follow-up hardening step once the public path is confirmed working, not before.)*
+
+### 7.3 Post-deploy checklist
+
+- [ ] `curl https://your-gateway.up.railway.app/healthz` returns `{"status":"ok"}`
+- [ ] Dashboard → Operasi WhatsApp → Sambung Nombor Baru → a QR code actually renders (confirms backend ↔ gateway are talking, and `GATEWAY_SHARED_SECRET` matches on both sides)
+- [ ] Scan it with WhatsApp/WhatsApp Business → status flips to `connected`
+- [ ] Redeploy the gateway service once, then reload the dashboard — the number should still show `connected` (confirms the `.wwebjs_auth` volume is actually persisting)
+
+### 7.4 Supabase is a separate, required dependency for this feature
+
+Every WhatsApp Ops endpoint (`/api/channels`, `/api/conversations`, `/api/leads`, `/api/quotations`) needs a real Supabase project with `supabase/migrations/` applied — see the `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` row in §2. This is independent of the gateway deployment above; both are required together for WhatsApp Ops to work end-to-end. If someone else owns/manages the Supabase project for this app, get `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from them and confirm the migrations under `supabase/migrations/` have been applied to it, rather than provisioning a separate one — a second, unrelated Supabase project would leave the schema this code expects missing.

@@ -38,11 +38,14 @@ class ScriptedProvider:
         )
 
 
-def _run_flow(provider, prompt="Kira bajet pemasaran bulan ini."):
+def _run_flow(provider, prompt="Kira bajet pemasaran bulan ini.", on_event=None, history=None):
     with patch("src.ai.agents.factory.resolve_provider", return_value=provider), \
          patch("src.ai.flows.task_execution_flow.resolve_provider", return_value=provider):
-        flow = TaskExecutionFlow()
-        return flow.kickoff(inputs={"prompt": prompt, "org_id": None, "model": "gpt-4o-mini"})
+        flow = TaskExecutionFlow(on_event=on_event)
+        inputs = {"prompt": prompt, "org_id": None, "model": "gpt-4o-mini"}
+        if history is not None:
+            inputs["history"] = history
+        return flow.kickoff(inputs=inputs)
 
 
 def test_happy_path_single_specialist():
@@ -132,3 +135,145 @@ def test_no_assignments_is_an_error():
 
     assert response.status == "error"
     assert response.message == "Claudia tidak memberikan tugasan kepada sesiapa."
+
+
+def test_chat_status_replies_without_routing_to_a_specialist():
+    claudia_json = '{"status": "chat", "reply": "Hai Bos! Ada apa yang saya boleh bantu?"}'
+    provider = ScriptedProvider(scripted_texts=[claudia_json])
+
+    response = _run_flow(provider, prompt="hai")
+
+    assert response.status == "chat"
+    assert response.message == "Hai Bos! Ada apa yang saya boleh bantu?"
+    assert provider.call_count == 1  # only Claudia ran, no specialist invoked
+
+
+def test_chat_status_missing_reply_falls_back_to_clarifying_question():
+    claudia_json = '{"status": "chat"}'
+    provider = ScriptedProvider(scripted_texts=[claudia_json])
+
+    response = _run_flow(provider, prompt="???")
+
+    assert response.status == "chat"
+    assert response.message == "Baik, boleh awak jelaskan lagi?"
+
+
+def test_parse_decision_chat_json_path():
+    decision = TaskExecutionFlow._parse_decision('{"status": "chat", "reply": "Hai!"}')
+    assert decision == {"status": "chat", "reply": "Hai!"}
+
+
+def test_parse_decision_chat_regex_fallback_on_malformed_json():
+    malformed = '{"status": "chat", "reply": "Boleh jelaskan lagi tak" trailing garbage}'
+    decision = TaskExecutionFlow._parse_decision(malformed)
+
+    assert decision["status"] == "chat"
+    assert decision["reply"] == "Boleh jelaskan lagi tak"
+
+
+def test_format_history_produces_readable_transcript():
+    flow = TaskExecutionFlow()
+    flow.state.history = [
+        {"role": "user", "content": "Nama saya Bos"},
+        {"role": "assistant", "content": "Baik Bos!"},
+    ]
+
+    formatted = flow._format_history()
+
+    assert "Nama saya Bos" in formatted
+    assert "Baik Bos!" in formatted
+
+
+def test_format_history_empty_when_no_history():
+    flow = TaskExecutionFlow()
+    assert flow._format_history() == ""
+
+
+def test_on_event_reports_status_and_agent_lifecycle():
+    claudia_json = '{"status": "accepted", "assignments": [{"agent": "ZARA", "task": "kira bajet"}]}'
+    provider = ScriptedProvider(scripted_texts=[claudia_json, "Bajet: RM5,000."])
+    events = []
+
+    _run_flow(provider, on_event=lambda event_type, payload: events.append((event_type, payload)))
+
+    event_types = [e[0] for e in events]
+    assert "status" in event_types
+    assert ("agent_start", {"agent": "ZARA"}) in events
+    assert ("agent_done", {"agent": "ZARA"}) in events
+
+
+def test_danish_actually_generates_an_image_end_to_end():
+    """Regression test for the exact bug seen live in production: Danish had
+    the Image Generation tool attached, but CrewAI's executor never passes
+    `tools`/`available_functions` to InfinityLLMAdapter.call() (see
+    llm_adapter.py's `_build_tool_schema` fix) — so the tool was never invoked
+    and Danish just wrote banner *copy* text instead of generating an image.
+    Drives the real CrewAI Agent/Task/Crew/Flow machinery end-to-end (only the
+    OpenAI provider and the image tool's OpenAI client are mocked), so this
+    would have caught that bug."""
+    from unittest.mock import MagicMock
+    claudia_json = '{"status": "accepted", "assignments": [{"agent": "DANISH", "task": "buat banner goreng pisang cheese"}]}'
+
+    class ToolCallingProvider:
+        def __init__(self):
+            self.call_count = 0
+
+        def complete(self, messages, model, temperature=0.7, max_tokens=4096, tools=None):
+            self.call_count += 1
+            if self.call_count == 1:
+                return LLMResult(
+                    text=claudia_json, tokens_in=10, tokens_out=5, cost_usd=0.001,
+                    duration_ms=100, model=model, provider="openai",
+                )
+            if self.call_count == 2:
+                assert tools, "Danish's tools must have been auto-built and offered to the model"
+                # Find the image-generation tool by display name (not by
+                # position — Danish may have other tools too: DB lookups,
+                # browser research, etc.). The schema name has spaces
+                # normalised to underscores by _build_tool_schema.
+                image_tool_schema = next(
+                    t for t in tools
+                    if "Image_Generation" in t["function"]["name"]
+                    or "image_generation" in t["function"]["name"].lower()
+                )
+                tool_name = image_tool_schema["function"]["name"]
+                return LLMResult(
+                    text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+                    model=model, provider="openai",
+                    tool_calls=[{
+                        "id": "call_1",
+                        "function": {"name": tool_name, "arguments": '{"prompt": "banner goreng pisang cheese"}'},
+                    }],
+                )
+            return LLMResult(
+                text="Ini banner untuk goreng pisang cheese anda!", tokens_in=10, tokens_out=5,
+                cost_usd=0.001, duration_ms=100, model=model, provider="openai",
+            )
+
+    fake_openai_client = MagicMock()
+    fake_resp = MagicMock()
+    fake_resp.data = [MagicMock(b64_json="ZmFrZWltYWdl")]
+    fake_openai_client.images.generate.return_value = fake_resp
+
+    with patch("src.ai.tools.image_generation.OpenAI", return_value=fake_openai_client):
+        response = _run_flow(ToolCallingProvider(), prompt="buat banner goreng pisang cheese")
+
+    assert response.status == "success"
+    result = response.results[0]
+    assert result.agent == "DANISH"
+    assert result.artifacts == [{
+        "type": "image",
+        "mime_type": "image/png",
+        "data_base64": "ZmFrZWltYWdl",
+        "caption": "banner goreng pisang cheese",
+    }]
+
+
+def test_on_event_not_fired_for_specialists_when_task_rejected():
+    claudia_json = '{"status": "rejected", "reason": "Di luar bidang."}'
+    provider = ScriptedProvider(scripted_texts=[claudia_json])
+    events = []
+
+    _run_flow(provider, on_event=lambda event_type, payload: events.append((event_type, payload)))
+
+    assert all(e[0] != "agent_start" for e in events)

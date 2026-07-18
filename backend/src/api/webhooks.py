@@ -32,6 +32,7 @@ async def wa_gateway_webhook(request: Request):
         sender="customer",
         body=msg.body,
         external_id=msg.message_id,
+        channel_id=msg.channel_id,
     )
 
     job_repo = JobRepo()

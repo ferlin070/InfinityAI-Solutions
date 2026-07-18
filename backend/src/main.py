@@ -20,9 +20,21 @@ setup_cors(app)
 setup_security_headers(app)
 
 # Mount static files
-app.mount("/css", StaticFiles(directory=os.path.join(FRONTEND_DIR, "css")), name="css")
-app.mount("/js", StaticFiles(directory=os.path.join(FRONTEND_DIR, "js")), name="js")
-app.mount("/icons", StaticFiles(directory=os.path.join(FRONTEND_DIR, "icons")), name="icons")
+css_dir = os.path.join(FRONTEND_DIR, "css")
+if os.path.exists(css_dir):
+    app.mount("/css", StaticFiles(directory=css_dir), name="css")
+
+js_dir = os.path.join(FRONTEND_DIR, "js")
+if os.path.exists(js_dir):
+    app.mount("/js", StaticFiles(directory=js_dir), name="js")
+
+icons_dir = os.path.join(FRONTEND_DIR, "icons")
+if os.path.exists(icons_dir):
+    app.mount("/icons", StaticFiles(directory=icons_dir), name="icons")
+
+assets_dir = os.path.join(FRONTEND_DIR, "assets")
+if os.path.exists(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 
 # Include routes

@@ -6,20 +6,35 @@ class MessageRepo:
     def __init__(self):
         self._db = get_supabase()
 
-    def create(self, org_id: str, conversation_id: str, direction: str, sender: str,
+    def create(self, org_id: str, conversation_id: Optional[str], direction: str, sender: str,
                body: Optional[str] = None, media_url: Optional[str] = None,
-               external_id: Optional[str] = None) -> dict:
+               external_id: Optional[str] = None, channel_id: Optional[str] = None) -> dict:
+        if not channel_id and conversation_id:
+            conv = (
+                self._db.table("conversations")
+                .select("channel_id")
+                .eq("id", conversation_id)
+                .maybe_single()
+                .execute()
+            )
+            if conv.data:
+                channel_id = conv.data["channel_id"]
+
+        data = {
+            "org_id": org_id,
+            "conversation_id": conversation_id or None,
+            "direction": direction,
+            "sender": sender,
+            "body": body,
+            "media_url": media_url,
+            "external_id": external_id,
+        }
+        if channel_id:
+            data["channel_id"] = channel_id
+
         result = (
             self._db.table("messages")
-            .insert({
-                "org_id": org_id,
-                "conversation_id": conversation_id,
-                "direction": direction,
-                "sender": sender,
-                "body": body,
-                "media_url": media_url,
-                "external_id": external_id,
-            })
+            .upsert(data, on_conflict="channel_id,external_id")
             .execute()
         )
         return result.data[0]

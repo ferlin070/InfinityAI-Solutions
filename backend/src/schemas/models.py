@@ -23,6 +23,7 @@ class AgentResult(BaseModel):
     task: str
     result: str
     speed: str
+    artifacts: Optional[List[dict]] = None
 
 
 class ExecuteResponse(BaseModel):

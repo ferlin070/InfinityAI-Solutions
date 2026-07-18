@@ -113,6 +113,14 @@ def verify_environment():
         if not os.getenv("ADMIN_PASSWORD"):
             logger.warning("ADMIN_PASSWORD tidak diset di .env. Menggunakan fallback: password123")
 
+    if not os.getenv("SESSION_SECRET_KEY"):
+        logger.warning(
+            "SESSION_SECRET_KEY tidak diset di .env — session token ditandatangan "
+            "guna kunci terbitan dari ADMIN_PASSWORD sebagai fallback. Set "
+            "SESSION_SECRET_KEY khusus (rawak, panjang) di production supaya "
+            "session tidak bergantung pada ADMIN_PASSWORD."
+        )
+
     # Supabase validation (fail-open-by-design)
     if (SUPABASE_URL and not SUPABASE_SERVICE_ROLE_KEY) or (not SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
         raise RuntimeError(

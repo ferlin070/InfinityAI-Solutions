@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from typing import Callable
 
 from crewai import Crew, Process, Task
 from crewai.flow import Flow, listen, start
@@ -18,6 +19,8 @@ from src.core.constants import SPECIALIST_AGENTS
 from src.schemas.models import AgentResult, ExecuteResponse
 from src.services.logging import extract_json
 
+EventCallback = Callable[[str, dict], None]
+
 
 def _check_usage_budget(org_id: str | None) -> bool:
     """Per-org usage/budget guard (docs/architecture/ai-execution-crewai.md §5.2
@@ -34,10 +37,12 @@ class TaskExecutionState(BaseModel):
     org_id: str | None = None
     model: str = "gpt-4o-mini"
     prompt: str = ""
+    history: list[dict] = Field(default_factory=list)
     status: str = "running"
     assignments: list[dict] = Field(default_factory=list)
     results: list[AgentResult] = Field(default_factory=list)
     rejection_reason: str | None = None
+    chat_reply: str | None = None
     error: str | None = None
     started_at: float = 0.0
 
@@ -49,16 +54,29 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
     specialists run — now expressed as explicit Flow steps so guardrails sit
     between steps instead of inside one opaque function.
     See docs/architecture/ai-execution-crewai.md §3.2 for the step diagram.
+
+    `on_event` is an optional progress callback (agent_key/tool/status style
+    dict payloads) used to stream live activity to a caller (see
+    backend/src/api/routes.py's /api/chat/stream) — it never affects the
+    deterministic result, only observability of it.
     """
+
+    def __init__(self, on_event: EventCallback | None = None):
+        super().__init__()
+        self._on_event = on_event or (lambda event_type, payload: None)
 
     @start()
     def classify_intent(self) -> ExecuteResponse | None:
         self.state.started_at = time.time()
+        self._on_event("status", {"text": "Claudia sedang menganalisis arahan..."})
+
         claudia_config = load_agent("CLAUDIA", org_id=self.state.org_id)
-        claudia_agent = build_crewai_agent(claudia_config, on_result=structured_log_callback)
+        claudia_agent = build_crewai_agent(
+            claudia_config, on_result=structured_log_callback, on_event=self._on_event
+        )
 
         task = Task(
-            description=self.state.prompt,
+            description=f"{self._format_history()}Mesej terbaru Bos: {self.state.prompt}",
             expected_output=(
                 "JSON tepat mengikut format yang dinyatakan dalam backstory anda. "
                 "Tiada teks lain di luar JSON."
@@ -93,7 +111,14 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
             self.state.error = "Kegagalan menghurai keputusan tugasan dari Claudia."
             return self._build_response()
 
-        if decision.get("status") == "rejected":
+        decision_status = decision.get("status")
+
+        if decision_status == "chat":
+            self.state.status = "chat"
+            self.state.chat_reply = decision.get("reply", "Baik, boleh awak jelaskan lagi?")
+            return self._build_response()
+
+        if decision_status == "rejected":
             self.state.status = "rejected"
             self.state.rejection_reason = decision.get("reason", "Tugasan di luar bidang kuasa AI.")
             return self._build_response()
@@ -103,6 +128,9 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
             self.state.status = "error"
             self.state.error = "Claudia tidak memberikan tugasan kepada sesiapa."
             return self._build_response()
+
+        agent_names = ", ".join((a.get("agent") or "?") for a in assignments)
+        self._on_event("status", {"text": f"Menghantar tugasan kepada {agent_names}..."})
 
         self.state.assignments = assignments
         return None  # not terminal yet — execute_specialists continues the flow
@@ -125,6 +153,7 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
                 self.state.error = "Had penggunaan AI bulanan telah dicapai."
                 return self._build_response()
 
+            self._on_event("agent_start", {"agent": agent_key})
             try:
                 result = self._run_specialist(agent_key, task_text)
             except ProviderError as e:
@@ -132,6 +161,7 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
                 self.state.status = "error"
                 self.state.error = "Ralat dalaman sistem semasa memproses tugasan."
                 return self._build_response()
+            self._on_event("agent_done", {"agent": agent_key})
 
             self.state.results.append(result)
 
@@ -141,6 +171,7 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
     def _run_specialist(self, agent_key: str, task_text: str) -> AgentResult:
         config = load_agent(agent_key, org_id=self.state.org_id)
         captured: list[LLMResult] = []
+        artifacts: list[dict] = []
         provider = resolve_provider(config.provider, config.org_id)
         llm = InfinityLLMAdapter(
             provider=provider,
@@ -148,8 +179,9 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
             agent_key=config.key,
             org_id=config.org_id,
             on_result=chain(structured_log_callback, lambda k, o, r: captured.append(r)),
+            on_event=self._on_event,
         )
-        agent = build_crewai_agent(config, llm=llm)
+        agent = build_crewai_agent(config, llm=llm, artifact_collector=artifacts)
         task = Task(
             description=task_text,
             expected_output="Hasil kerja dalam teks biasa.",
@@ -166,7 +198,17 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
             task=task_text,
             result=str(crew_output),
             speed=f"{duration_s:.2f}s",
+            artifacts=artifacts or None,
         )
+
+    def _format_history(self) -> str:
+        if not self.state.history:
+            return ""
+        lines = [
+            f"[{m.get('role', 'user')}]: {m.get('content', '')}"
+            for m in self.state.history[-20:]
+        ]
+        return "Sejarah perbualan lepas:\n" + "\n".join(lines) + "\n\n"
 
     def _build_response(self) -> ExecuteResponse:
         total_speed = f"{time.time() - self.state.started_at:.2f}s"
@@ -177,6 +219,8 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
                 total_speed=total_speed,
                 model=self.state.model,
             )
+        if self.state.status == "chat":
+            return ExecuteResponse(status="chat", message=self.state.chat_reply, model=self.state.model)
         if self.state.status == "rejected":
             return ExecuteResponse(
                 status="rejected", message=self.state.rejection_reason, model=self.state.model
@@ -197,6 +241,11 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
             try:
                 status_match = re.search(r'"status":\s*"(\w+)"', json_str)
                 status = status_match.group(1) if status_match else "error"
+
+                if status == "chat":
+                    reply_match = re.search(r'"reply":\s*"(.*?)"', json_str, re.DOTALL)
+                    reply = reply_match.group(1) if reply_match else "Baik, boleh awak jelaskan lagi?"
+                    return {"status": "chat", "reply": reply}
 
                 if status == "rejected":
                     reason_match = re.search(r'"reason":\s*"(.*?)"', json_str, re.DOTALL)
