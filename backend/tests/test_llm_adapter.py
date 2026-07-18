@@ -137,10 +137,18 @@ def test_on_event_fires_around_tool_call_execution():
     )
 
     assert response == "hasil akhir"
-    assert events == [
-        ("tool_call", {"agent": "DANISH", "tool": "my_tool", "status": "start"}),
-        ("tool_call", {"agent": "DANISH", "tool": "my_tool", "status": "done"}),
-    ]
+    # `observation` event was added in agentic-v3 (Phase 1) so the Agent
+    # Workspace UI can render a full ToolExecutionCard with the result.
+    event_types = [e[0] for e in events]
+    assert ("tool_call", {"agent": "DANISH", "tool": "my_tool", "status": "start"}) in events
+    assert ("tool_call", {"agent": "DANISH", "tool": "my_tool", "status": "done"}) in events
+    assert "observation" in event_types
+    # The observation should carry the tool's actual result.
+    obs = next(e for e in events if e[0] == "observation")
+    assert obs[1]["tool"] == "my_tool"
+    assert obs[1]["agent"] == "DANISH"
+    assert "tool output" in obs[1]["result"]
+    assert obs[1]["success"] is True
 
 
 def test_on_event_fires_done_even_when_tool_raises():
@@ -174,7 +182,15 @@ def test_on_event_fires_done_even_when_tool_raises():
         available_functions={"broken_tool": _boom},
     )
 
-    assert [e[1]["status"] for e in events] == ["start", "done"]
+    # Both the start + done events must still fire even when the tool
+    # raises. agentic-v3 also fires an `observation` with success=False.
+    event_types = [e[0] for e in events]
+    statuses = [e[1]["status"] for e in events if e[0] == "tool_call"]
+    assert statuses == ["start", "done"]
+    assert "observation" in event_types
+    obs = next(e for e in events if e[0] == "observation")
+    assert obs[1]["success"] is False
+    assert "Error" in obs[1]["result"]
 
 
 def test_build_tool_schema_sanitizes_names_and_extracts_json_schema():

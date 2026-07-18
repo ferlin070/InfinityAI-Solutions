@@ -132,6 +132,31 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
         agent_names = ", ".join((a.get("agent") or "?") for a in assignments)
         self._on_event("status", {"text": f"Menghantar tugasan kepada {agent_names}..."})
 
+        # Emit a structured `plan` event so the Agent Workspace UI can
+        # show the user what the planner is about to do BEFORE execution
+        # starts. Even though V1 doesn't use the formal Planner module
+        # yet, the assignments are themselves a plan — the user can
+        # inspect and the UI can render them as a step.
+        self._on_event("plan", {
+            "intent": self.state.prompt[:200],
+            "complexity": "simple" if len(assignments) == 1 else ("moderate" if len(assignments) <= 3 else "complex"),
+            "subtasks": [
+                {
+                    "id": f"sub_{i+1}",
+                    "description": (a.get("task") or "")[:300],
+                    "agent_key": (a.get("agent") or "").upper(),
+                    "success_criteria": "Selesaikan tugasan dan pulangkan hasil.",
+                    "required_capabilities": [],
+                    "depends_on": [],
+                    "parallelizable": False,
+                    "approval_required": False,
+                    "max_tool_calls": 10,
+                }
+                for i, a in enumerate(assignments)
+            ],
+            "success_criteria": "Berikan jawapan / hasil untuk permintaan Bos.",
+        })
+
         self.state.assignments = assignments
         return None  # not terminal yet — execute_specialists continues the flow
 
@@ -140,13 +165,22 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
         if classify_result is not None:
             return classify_result  # classify_intent already reached a terminal state
 
-        for assignment in self.state.assignments:
+        for i, assignment in enumerate(self.state.assignments):
             agent_key = (assignment.get("agent") or "").upper()
             task_text = assignment.get("task", "")
+            subtask_id = f"sub_{i+1}"
 
             if agent_key not in SPECIALIST_AGENTS:
                 logger.warning(f"Claudia assigned unknown agent '{agent_key}', skipping.")
                 continue
+
+            # Emit subtask_start so the UI can open a new timeline step
+            # for this specialist.
+            self._on_event("subtask_start", {
+                "subtask_id": subtask_id,
+                "agent_key": agent_key,
+                "description": task_text[:300],
+            })
 
             if not _check_usage_budget(self.state.org_id):
                 self.state.status = "halted_budget"
@@ -158,10 +192,26 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
                 result = self._run_specialist(agent_key, task_text)
             except ProviderError as e:
                 logger.error(f"Ralat provider semasa '{agent_key}' memproses tugasan: {e}", exc_info=True)
+                self._on_event("subtask_done", {
+                    "subtask_id": subtask_id,
+                    "agent_key": agent_key,
+                    "status": "failed",
+                    "error": "Ralat dalaman sistem semasa memproses tugasan.",
+                })
                 self.state.status = "error"
                 self.state.error = "Ralat dalaman sistem semasa memproses tugasan."
                 return self._build_response()
             self._on_event("agent_done", {"agent": agent_key})
+            # Emit subtask_done with the worker's final result so the
+            # Agent Workspace UI can render the completed step.
+            self._on_event("subtask_done", {
+                "subtask_id": subtask_id,
+                "agent_key": agent_key,
+                "status": "success",
+                "result_text": (result.result or "")[:2000],
+                "speed": result.speed,
+                "artifacts": result.artifacts or [],
+            })
 
             self.state.results.append(result)
 

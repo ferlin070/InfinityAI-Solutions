@@ -138,6 +138,20 @@ class InfinityLLMAdapter(BaseLLM):
                     self._on_event("tool_call", {
                         "agent": self._agent_key, "tool": fn_name, "status": "done"
                     })
+                # Emit an `observation` event with the actual tool result
+                # so the Agent Workspace UI can render a full
+                # ToolExecutionCard (args + result). Truncated to 4 KB
+                # to keep the SSE stream light.
+                obs = str(fn_output)
+                if len(obs) > 4000:
+                    obs = obs[:4000] + "... [truncated]"
+                self._on_event("observation", {
+                    "agent": self._agent_key,
+                    "tool": fn_name,
+                    "arguments": fn_args if isinstance(fn_args, dict) else {},
+                    "result": obs,
+                    "success": not str(fn_output).lower().startswith("error"),
+                })
                 executed_results.append({"id": tc["id"], "output": str(fn_output)})
 
             normalized.append({
