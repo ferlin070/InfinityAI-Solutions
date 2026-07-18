@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 from typing import Optional
-from postgrest.exceptions import APIError
 from src.db.client import get_supabase
+from .base import BaseRepo
 
 
-class JobRepo:
+class JobRepo(BaseRepo):
     def __init__(self):
         self._db = get_supabase()
 
@@ -59,11 +59,3 @@ class JobRepo:
             .eq("id", job_id)
         )
         return result.data[0] if result and result.data else {}
-
-    def _exec(self, query):
-        try:
-            return query.execute()
-        except APIError as e:
-            if e.code == "204":
-                return None
-            raise
