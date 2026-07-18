@@ -1,18 +1,17 @@
 FROM node:20-slim
 
 RUN apt-get update && apt-get install -y \
-    chromium \
-    chromium-sandbox \
+    wget \
+    gnupg \
+    ca-certificates \
+    && wget -q -O- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmour -o /usr/share/keyrings/google-chrome.gpg \
+    && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list' \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# PUPPETEER_EXECUTABLE_PATH is the variable Puppeteer itself actually reads —
-# a prior version of this file set CHROMIUM_PATH, which Puppeteer/whatsapp-web.js
-# never looks at, so every session initialize() failed with "Could not find
-# Chrome" despite Chromium being installed right above (confirmed via live
-# Railway deployment logs). sessions.js also passes this explicitly as
-# `executablePath` as a second line of defense, independent of env var pickup.
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
 
 WORKDIR /app
 COPY gateway/package.json .
