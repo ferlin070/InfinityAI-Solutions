@@ -31,6 +31,10 @@ def run_worker():
             repo.complete(job["id"])
         except Exception as e:
             logger.error(f"Worker error: {e}", exc_info=True)
+            try:
+                repo.fail(job["id"], str(e))
+            except Exception:
+                pass
             time.sleep(5)
 
 
