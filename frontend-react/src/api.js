@@ -183,3 +183,57 @@ export async function logout() {
 export async function checkMe() {
     return apiGet('/api/me');
 }
+
+// ─── Products API ─────────────────────────────────────────────
+
+export async function fetchProducts() {
+    return apiGet('/api/products');
+}
+
+export async function createProduct(data) {
+    return apiPost('/api/products', data);
+}
+
+export async function updateProduct(productId, data) {
+    const response = await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (response.status === 401) {
+        window.location.reload();
+        return null;
+    }
+    return response.json();
+}
+
+export async function deleteProduct(productId) {
+    const response = await fetch(`/api/products/${productId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+    });
+    if (response.status === 401) {
+        window.location.reload();
+        return null;
+    }
+    return response.json();
+}
+
+// ─── Business Profile API ──────────────────────────────────────
+
+export async function fetchBusinessProfile() {
+    return apiGet('/api/business/profile');
+}
+
+export async function updateBusinessProfile(data) {
+    const response = await fetch('/api/business/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (response.status === 401) {
+        window.location.reload();
+        return null;
+    }
+    return response.json();
+}

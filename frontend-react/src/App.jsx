@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Sliders, Settings as SettingsIcon, MessageSquare, 
-  TrendingUp, LogOut, Shield, Globe, Users, FileText, SlidersHorizontal 
+  TrendingUp, LogOut, Shield, Globe, Users, FileText, SlidersHorizontal,
+  Building2 
 } from 'lucide-react';
 import { translations } from './translations';
 import { checkMe, logout } from './api';
@@ -16,6 +17,7 @@ import QuotationsList from './components/QuotationsList';
 import AgentConfig from './components/AgentConfig';
 import Analytics from './components/Analytics';
 import Settings from './components/Settings';
+import BusinessConfig from './components/BusinessConfig';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -122,6 +124,7 @@ export default function App() {
           { id: 'workorder', label: t('tab-workorder'), icon: FileText },
           { id: 'whatsapp', label: t('tab-whatsapp'), icon: MessageSquare },
           { id: 'agents', label: 'Agent Config', icon: Sliders },
+          { id: 'business', label: t('tab-business'), icon: Building2 },
           { id: 'analytics', label: 'Analytics', icon: TrendingUp },
           { id: 'settings', label: 'Settings', icon: SettingsIcon },
         ].map((tab) => {
@@ -184,6 +187,7 @@ export default function App() {
         )}
 
         {activeTab === 'agents' && <AgentConfig t={t} />}
+        {activeTab === 'business' && <BusinessConfig t={t} />}
         {activeTab === 'analytics' && <Analytics />}
         {activeTab === 'settings' && <Settings t={t} />}
       </main>

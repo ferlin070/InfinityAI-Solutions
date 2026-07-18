@@ -3,6 +3,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, Cookie
 from pydantic import BaseModel
 
+from src.db.repositories.products import ProductRepo
 from src.ai.agents.config_store import AgentOverride, get_agent_config_store
 from src.ai.agents.registry import load_agent, load_agents
 from src.channels.wa_webjs import WAWebJSProvider
@@ -44,6 +45,31 @@ class UpdateAgentConfigRequest(BaseModel):
     role: str | None = None
     goal: str | None = None
     backstory: str | None = None
+
+
+class CreateProductRequest(BaseModel):
+    name: str
+    unit_price: float
+    description: str | None = None
+    stock_qty: int | None = None
+
+
+class UpdateProductRequest(BaseModel):
+    name: str | None = None
+    unit_price: float | None = None
+    description: str | None = None
+    stock_qty: int | None = None
+
+
+class UpdateBusinessProfileRequest(BaseModel):
+    company_name: str | None = None
+    industry: str | None = None
+    description: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    website: str | None = None
+    logo_url: str | None = None
 
 
 # ─── Channels (WhatsApp Connection) ────────────────────────────
@@ -219,6 +245,117 @@ async def list_agents(session_token: str | None = Cookie(None)):
         }
         for cfg in configs.values()
     ]
+
+
+# ─── Products ────────────────────────────────────────────────────
+
+
+@router.get("/api/products")
+async def list_products(session_token: str | None = Cookie(None)):
+    require_session(session_token)
+    repo = ProductRepo()
+    return repo.list_by_org(ORG_ID)
+
+
+@router.post("/api/products")
+async def create_product(data: CreateProductRequest,
+                         session_token: str | None = Cookie(None)):
+    require_session(session_token)
+    repo = ProductRepo()
+    product = repo.create(
+        org_id=ORG_ID,
+        name=data.name,
+        unit_price=data.unit_price,
+        description=data.description,
+        stock_qty=data.stock_qty,
+    )
+    logger.info(f"Product created: {product['id']} ({data.name})")
+    return product
+
+
+@router.put("/api/products/{product_id}")
+async def update_product(product_id: str, data: UpdateProductRequest,
+                         session_token: str | None = Cookie(None)):
+    require_session(session_token)
+    repo = ProductRepo()
+    product = repo.update(
+        org_id=ORG_ID,
+        product_id=product_id,
+        name=data.name,
+        unit_price=data.unit_price,
+        description=data.description,
+        stock_qty=data.stock_qty,
+    )
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    logger.info(f"Product updated: {product_id}")
+    return product
+
+
+@router.delete("/api/products/{product_id}")
+async def delete_product(product_id: str,
+                         session_token: str | None = Cookie(None)):
+    require_session(session_token)
+    repo = ProductRepo()
+    deleted = repo.delete(ORG_ID, product_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Product not found")
+    logger.info(f"Product deleted: {product_id}")
+    return {"status": "deleted"}
+
+
+# ─── Business Profile ────────────────────────────────────────────
+
+
+def _build_profile_response(org: dict) -> dict:
+    settings = org.get("settings", {}) or {}
+    return {
+        "company_name": org.get("name", ""),
+        "industry": settings.get("industry", ""),
+        "description": settings.get("description", ""),
+        "address": settings.get("address", ""),
+        "phone": settings.get("phone", ""),
+        "email": settings.get("email", ""),
+        "website": settings.get("website", ""),
+        "logo_url": settings.get("logo_url", ""),
+    }
+
+
+@router.get("/api/business/profile")
+async def get_business_profile(session_token: str | None = Cookie(None)):
+    require_session(session_token)
+    from src.db.client import get_supabase
+    db = get_supabase()
+    result = db.table("organizations").select("*").eq("id", ORG_ID).maybe_single().execute()
+    org = result.data
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return _build_profile_response(org)
+
+
+@router.put("/api/business/profile")
+async def update_business_profile(data: UpdateBusinessProfileRequest,
+                                  session_token: str | None = Cookie(None)):
+    require_session(session_token)
+    from src.db.client import get_supabase
+    db = get_supabase()
+    result = db.table("organizations").select("settings").eq("id", ORG_ID).maybe_single().execute()
+    org = result.data
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    settings = org.get("settings", {}) or {}
+    updates = {}
+    for field in ("industry", "description", "address", "phone", "email", "website", "logo_url"):
+        val = getattr(data, field, None)
+        if val is not None:
+            settings[field] = val
+    if data.company_name is not None:
+        updates["name"] = data.company_name
+    updates["settings"] = settings
+    db.table("organizations").update(updates).eq("id", ORG_ID).execute()
+    logger.info(f"Business profile updated for org {ORG_ID}")
+    org_updated = db.table("organizations").select("*").eq("id", ORG_ID).maybe_single().execute()
+    return _build_profile_response(org_updated.data or org)
 
 
 @router.get("/api/agents/{agent_key}")
