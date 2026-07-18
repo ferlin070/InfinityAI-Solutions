@@ -97,18 +97,41 @@ class TaskExecutionFlow(Flow[TaskExecutionState]):
             self.state.error = "Ralat dalaman semasa berhubung dengan penyedia AI."
             return self._build_response()
 
-        raw_text = str(crew_output)
+        raw_text = str(crew_output).strip()
         json_str = extract_json(raw_text)
+
         if not json_str:
-            logger.warning(f"Claudia membalas tanpa JSON sah. Jawapan Claudia: {raw_text[:200]}")
+            # The LLM gave a non-empty answer but it wasn't parseable
+            # as the strict routing JSON. Don't treat this as a fatal
+            # error — the user got a real answer and the agentic-v3
+            # rewrite already says "call tools first, reply naturally".
+            # Fall back to `chat` status with the raw text as the
+            # reply so the user still sees Claudia's response. A
+            # warning is logged so we can spot the prompt gap.
+            if raw_text:
+                logger.warning(
+                    "Claudia replied without parseable routing JSON; "
+                    "treating as chat. First 200 chars: %r", raw_text[:200],
+                )
+                self.state.status = "chat"
+                self.state.chat_reply = raw_text[:4000]
+                return self._build_response()
+            # Truly empty response — that's a real error.
+            logger.warning("Claudia membalas kosong (tiada JSON, tiada teks).")
             self.state.status = "error"
             self.state.error = "Claudia membalas tanpa JSON sah."
             return self._build_response()
 
         decision = self._parse_decision(json_str)
         if decision is None:
-            self.state.status = "error"
-            self.state.error = "Kegagalan menghurai keputusan tugasan dari Claudia."
+            # JSON extracted but didn't match any known shape. The
+            # `chat` branch is the most forgiving — fall through.
+            logger.warning(
+                "Claudia JSON parsed but did not match a known routing "
+                "shape. First 200 chars: %r", json_str[:200],
+            )
+            self.state.status = "chat"
+            self.state.chat_reply = json_str[:4000]
             return self._build_response()
 
         decision_status = decision.get("status")

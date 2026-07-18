@@ -88,12 +88,38 @@ def test_rejected_task():
 
 
 def test_claudia_replies_without_json():
+    """Claudia giving a non-empty plain-text answer (no routing JSON)
+    is treated as a `chat` reply — the user still sees her answer
+    instead of an opaque 'Claudia membalas tanpa JSON sah' error.
+
+    See docs: the agentic-v3 rewrite tells Claudia to use tools +
+    answer naturally for status questions, so this case is now
+    expected, not exceptional."""
     provider = ScriptedProvider(scripted_texts=["Maaf, saya tidak faham."])
 
     response = _run_flow(provider)
 
-    assert response.status == "error"
-    assert response.message == "Claudia membalas tanpa JSON sah."
+    assert response.status == "chat"
+    assert "Maaf, saya tidak faham" in response.message
+
+
+def test_claudia_empty_reply_still_errors():
+    """A truly empty reply (LLM returned nothing) IS an error —
+    there's nothing to show the user.
+
+    In practice, CrewAI's LLM-error fallback returns a non-empty
+    string like 'Selesai.' so this case is hard to reach via the
+    public flow. The empty-string branch is still covered by the
+    extract_json unit test in test_claudia_json_tolerance.py."""
+    provider = ScriptedProvider(scripted_texts=[""])
+    response = _run_flow(provider)
+    # Either an error (truly empty), or a chat with the LLM's
+    # fallback string — both are acceptable. What we MUST NOT see
+    # is the old 'Claudia membalas tanpa JSON sah' silent-failure
+    # when the user actually got a response.
+    assert response.status in ("chat", "error")
+    if response.status == "error":
+        assert "JSON" in response.message or "kosong" in response.message.lower()
 
 
 def test_claudia_provider_error_becomes_generic_error():

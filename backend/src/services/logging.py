@@ -6,61 +6,84 @@ from src.core.config import LOG_FILE, logger
 
 def extract_json(text: str) -> str | None:
     """
-    Extract and parse JSON from text robustly.
-    Handles markdown code blocks, control characters, and nested braces.
+    Extract a JSON object from `text` robustly.
 
-    Returns:
-        JSON string if found, None otherwise
+    Tries, in order:
+      1. The whole text (in case the LLM emits pure JSON).
+      2. A fenced ```json ... ``` block.
+      3. A fenced ``` ... ``` block (no language tag).
+      4. The first balanced `{...}` substring (with proper string escaping).
+      5. A balanced `{...}` ignoring string rules (last-resort fallback).
+
+    Returns the JSON text on success, or None if no candidate parses.
+    The caller is expected to handle the None case gracefully — see
+    `task_execution_flow.py`: when the LLM gives a non-empty answer
+    without JSON, the flow treats it as a `chat` reply instead of an
+    error, so the user still sees Claudia's response.
     """
     if not text:
         return None
 
-    text_clean = text.replace("```json", "").replace("```", "").strip()
+    text_clean = text.strip()
+    # Normalize line endings inside strings — LLMs sometimes embed
+    # literal \n or unescaped newlines that break json.loads.
+    # We try parsing as-is first; fall back to other strategies if it fails.
 
-    # Find first opening brace
-    start = text_clean.find('{')
-    if start == -1:
-        return None
+    candidates: list[str] = []
 
-    # Try to find matching braces while respecting strings
-    count = 0
-    in_string = False
-    escape = False
+    # 1. Whole text as JSON
+    candidates.append(text_clean)
 
-    for i in range(start, len(text_clean)):
-        char = text_clean[i]
-        if escape:
-            escape = False
-            continue
-        if char == '\\':
-            escape = True
-            continue
-        if char == '"':
-            in_string = not in_string
-            continue
+    # 2 & 3. Fenced code blocks
+    import re as _re
+    for m in _re.finditer(r"```(?:json)?\s*\n?(.*?)\n?```", text_clean, _re.DOTALL):
+        candidates.append(m.group(1).strip())
 
-        if not in_string:
-            if char == '{':
-                count += 1
-            elif char == '}':
+    # 4. First balanced {...} with proper string escaping
+    start = text_clean.find("{")
+    if start != -1:
+        count = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(text_clean)):
+            char = text_clean[i]
+            if escape:
+                escape = False
+                continue
+            if char == "\\":
+                escape = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if not in_string:
+                if char == "{":
+                    count += 1
+                elif char == "}":
+                    count -= 1
+                    if count == 0:
+                        candidates.append(text_clean[start:i + 1])
+                        break
+
+    # 5. Last-resort: balanced {...} ignoring string rules
+    if start != -1:
+        count = 0
+        for i in range(start, len(text_clean)):
+            if text_clean[i] == "{": count += 1
+            elif text_clean[i] == "}":
                 count -= 1
                 if count == 0:
-                    candidate = text_clean[start:i+1]
-                    try:
-                        json.loads(candidate)
-                        return candidate
-                    except Exception:
-                        pass
+                    candidates.append(text_clean[start:i + 1])
+                    break
 
-    # Fallback: simple brace counting
-    count = 0
-    for i in range(start, len(text_clean)):
-        if text_clean[i] == '{': count += 1
-        elif text_clean[i] == '}': count -= 1
-        if count == 0:
-            return text_clean[start:i+1]
-
-    return text_clean[start:].strip() if start != -1 else None
+    # Try every candidate, return the first one that parses.
+    for c in candidates:
+        try:
+            json.loads(c)
+            return c
+        except Exception:
+            continue
+    return None
 
 
 def add_json_log(agent: str, model: str, status: str, duration: float) -> None:
