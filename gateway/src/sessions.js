@@ -19,7 +19,15 @@ function createSession(channelId) {
       // Chromium (skipped at build time by PUPPETEER_SKIP_DOWNLOAD) instead
       // of the system one actually installed in the Dockerfile.
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process"
+      ],
     },
   });
 
