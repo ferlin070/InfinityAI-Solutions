@@ -101,8 +101,18 @@ _BROWSER_TOOL_NAMES_BY_AGENT: dict[str, set[str] | str] = {
 # are layered in by `get_tools()` based on `_BROWSER_TOOL_NAMES_BY_AGENT`).
 # Adding a tool here is a one-line edit; `get_tools()` wires it up.
 STATIC_TOOL_MAPPINGS: dict[str, list] = {
-    # Claudia: Chief of Staff, routes only — no execution tools.
-    "CLAUDIA": [],
+    # Claudia: Chief of Staff + Chief of Inquiry. Has a small "quick-check"
+    # toolset so she can answer the user's status / config / discovery
+    # questions DIRECTLY (with a real tool call) instead of just chatting.
+    # Deeper work still routes to a specialist via `accepted` — see
+    # `prompts/loader.py` for the routing rules.
+    "CLAUDIA": [
+        db_platform_status_tool,
+        db_get_configuration_status_tool,
+        db_discover_platform_tool,
+        db_get_recent_activity_tool,
+        db_get_business_profile_tool,
+    ],
 
     # Maya: Sales & CRM. Pricing, contact lookup, conversation history,
     # lead/contact upserts, and the end-to-end quotation workflow.

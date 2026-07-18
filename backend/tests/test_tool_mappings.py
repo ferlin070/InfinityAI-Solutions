@@ -29,8 +29,17 @@ def test_every_agent_in_registry_has_a_list():
         assert isinstance(STATIC_TOOL_MAPPINGS[key], list)
 
 
-def test_claudia_has_no_execution_tools():
-    assert STATIC_TOOL_MAPPINGS["CLAUDIA"] == []
+def test_claudia_has_quick_check_tools():
+    """Claudia has a small quick-check toolset (platform status, config,
+    discover, recent activity, business profile) so she can answer
+    status/data questions directly instead of just chatting."""
+    from src.ai.agents.tool_mappings import STATIC_TOOL_MAPPINGS
+    names = {t.name for t in STATIC_TOOL_MAPPINGS["CLAUDIA"]}
+    assert "DB Platform Status" in names
+    assert "DB Get Configuration Status" in names
+    assert "DB Discover Platform" in names
+    assert "DB Get Recent Activity" in names
+    assert "DB Get Business Profile" in names
 
 
 def test_maya_has_pricing_and_workflow_tools():
@@ -59,11 +68,20 @@ def test_adila_has_business_profile_tools():
     assert "DB Update Business Profile" in names
 
 
-def test_only_adila_and_nexus_have_business_profile_tools():
-    for key in ("MAYA", "HAKIM", "ZARA", "DANISH", "AIMAN", "AMELIA", "CLAUDIA"):
+def test_only_adila_nexus_and_claudia_have_business_profile_tools():
+    """Adila (sole specialist owner), NEXUS (union), and Claudia (quick-check)
+    all have read access to the business profile. Only Adila + NEXUS can
+    UPDATE it — Claudia only reads, so she can answer 'what's our company
+    name?' without giving her mutation power."""
+    from src.ai.agents.tool_mappings import STATIC_TOOL_MAPPINGS
+    for key in ("MAYA", "HAKIM", "ZARA", "DANISH", "AIMAN", "AMELIA"):
         names = {t.name for t in get_tools(key)}
-        assert "DB Get Business Profile" not in names, f"{key} should not own business profile"
-        assert "DB Update Business Profile" not in names, f"{key} should not own business profile"
+        assert "DB Get Business Profile" not in names, f"{key} should not have business profile"
+        assert "DB Update Business Profile" not in names, f"{key} should not have business profile"
+    # Claudia can READ but not UPDATE
+    claudia_names = {t.name for t in STATIC_TOOL_MAPPINGS["CLAUDIA"]}
+    assert "DB Get Business Profile" in claudia_names
+    assert "DB Update Business Profile" not in claudia_names
 
 
 # ─── Image generation (upstream) ────────────────────────────────────────────
