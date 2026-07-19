@@ -105,7 +105,11 @@ async def get_channel_qr(channel_id: str,
                          session_token: str | None = Cookie(None)):
     require_session(session_token)
     provider = WAWebJSProvider()
-    return await asyncio.to_thread(provider.get_qr, channel_id)
+    result = await asyncio.to_thread(provider.get_qr, channel_id)
+    # When gateway reports connected, sync the Supabase channel status
+    if isinstance(result, dict) and result.get("status") == "connected":
+        ChannelRepo().update_status(ORG_ID, channel_id, "connected")
+    return result
 
 
 @router.get("/api/channels/{channel_id}/status")
@@ -176,17 +180,26 @@ async def send_message(conv_id: str, data: SendMessageRequest,
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # Save to DB immediately so UI updates instantly
     msg_repo.create(
         org_id=ORG_ID,
         conversation_id=conv_id,
         direction="outbound",
         sender="staff",
         body=data.body,
+        channel_id=data.channel_id,
     )
 
-    channel = WAWebJSProvider()
-    await asyncio.to_thread(channel.send_text, data.channel_id, data.to, data.body)
+    # Fire-and-forget: send via gateway without blocking the HTTP response
+    async def _send():
+        try:
+            ch = WAWebJSProvider()
+            await asyncio.to_thread(ch.send_text, data.channel_id, data.to, data.body)
+            logger.info(f"Staff reply sent via {data.channel_id} to {data.to}")
+        except Exception as e:
+            logger.warning(f"Gateway send failed (non-fatal): {e}")
 
+    asyncio.create_task(_send())
     return {"status": "sent"}
 
 
