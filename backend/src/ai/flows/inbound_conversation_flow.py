@@ -9,12 +9,14 @@ from src.core.config import logger
 class InboundConversationFlow(Flow):
     def __init__(self, conversation_id: str, last_messages: list[dict],
                  lead_profile: dict | None, products: list[dict],
+                 phone_number: str = "",
                  org_id: str = "00000000-0000-0000-0000-000000000001"):
         super().__init__()
         self.conversation_id = conversation_id
         self.last_messages = last_messages
         self.lead_profile = lead_profile
         self.products = products
+        self.phone_number = phone_number
         self.org_id = org_id
 
     @start()
@@ -62,6 +64,8 @@ class InboundConversationFlow(Flow):
         )
 
         user_context = f"""
+Nombor Telefon Pelanggan: {self.phone_number}
+
 Perbualan terkini:
 {conversation_history}
 

@@ -51,6 +51,7 @@ def process_inbound(job: dict) -> None:
         last_messages=last_msgs,
         lead_profile=lead,
         products=products,
+        phone_number=from_number,
         org_id=ORG_ID,
     )
     flow.kickoff()
