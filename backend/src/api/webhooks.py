@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from src.core.config import logger
 from src.db.repositories.jobs import JobRepo
 from src.db.repositories.messages import MessageRepo
+from src.db.repositories.channels import ChannelRepo
 from src.channels.wa_webjs import WAWebJSProvider
 
 router = APIRouter()
@@ -19,6 +20,18 @@ async def wa_gateway_webhook(request: Request):
     payload = await request.json()
     provider = WAWebJSProvider()
     msg = provider.parse_inbound(payload)
+
+    channel_repo = ChannelRepo()
+    channel = channel_repo.get_by_id("00000000-0000-0000-0000-000000000001", msg.channel_id)
+    if not channel:
+        ch = {
+            "id": msg.channel_id,
+            "org_id": "00000000-0000-0000-0000-000000000001",
+            "type": "wa_webjs",
+            "phone_number": msg.from_number,
+            "status": "connected",
+        }
+        channel_repo._db.table("channels").upsert(ch, on_conflict="id").execute()
 
     msg_repo = MessageRepo()
     existing = msg_repo.get_by_external_id(msg.channel_id, msg.message_id)
