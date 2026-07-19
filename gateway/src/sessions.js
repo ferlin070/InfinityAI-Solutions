@@ -30,7 +30,9 @@ function createSession(channelId) {
         "--no-zygote",
         "--single-process",
         "--disable-sync",
-        "--disable-blink-features=AutomationControlled"
+        "--disable-blink-features=AutomationControlled",
+        "--disable-features=IsolateOrigins,site-per-process",
+        "--disable-site-isolation-trials"
       ],
     },
   });
