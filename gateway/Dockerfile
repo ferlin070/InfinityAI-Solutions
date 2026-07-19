@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libu2f-udev \
     libxcomposite1 \
     libxdamage1 \
+    libxfixes3 \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
