@@ -202,6 +202,12 @@ def test_planner_fallback_plan_always_valid():
         def complete(self, *a, **k):
             return LLMResult(text="", tokens_in=0, tokens_out=0, cost_usd=0,
                               duration_ms=0, model="x", provider="openai")
+        # InfinityLLMAdapter.call() always goes through stream_complete now
+        # (see LLMProvider.stream_complete's default docstring) — this fake
+        # doesn't subclass LLMProvider so it doesn't inherit that default.
+        def stream_complete(self, messages, model, temperature=0.7, max_tokens=4096,
+                             tools=None, on_delta=None, should_stop=None):
+            return self.complete(messages, model, temperature, max_tokens, tools)
 
     from src.ai.agentic.planner import Planner
     from src.ai.crewai_adapter.llm_adapter import InfinityLLMAdapter
@@ -246,6 +252,9 @@ def test_planner_parses_valid_json_output():
             self.calls += 1
             return LLMResult(text=valid_json, tokens_in=10, tokens_out=20, cost_usd=0.001,
                               duration_ms=100, model="x", provider="openai")
+        def stream_complete(self, messages, model, temperature=0.7, max_tokens=4096,
+                             tools=None, on_delta=None, should_stop=None):
+            return self.complete(messages, model, temperature, max_tokens, tools)
 
     from src.ai.agentic.planner import Planner
     from src.ai.crewai_adapter.llm_adapter import InfinityLLMAdapter
@@ -268,6 +277,9 @@ def test_planner_parses_json_inside_code_fence():
         def complete(self, *a, **k):
             return LLMResult(text=fenced, tokens_in=10, tokens_out=20, cost_usd=0.001,
                               duration_ms=100, model="x", provider="openai")
+        def stream_complete(self, messages, model, temperature=0.7, max_tokens=4096,
+                             tools=None, on_delta=None, should_stop=None):
+            return self.complete(messages, model, temperature, max_tokens, tools)
 
     from src.ai.agentic.planner import Planner
     from src.ai.crewai_adapter.llm_adapter import InfinityLLMAdapter

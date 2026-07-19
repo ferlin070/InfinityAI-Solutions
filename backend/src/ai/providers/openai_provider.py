@@ -1,5 +1,5 @@
 import time
-from typing import Iterator
+from typing import Callable, Iterator
 
 import openai
 from openai import OpenAI
@@ -102,6 +102,104 @@ class OpenAIProvider(LLMProvider):
                     yield delta
         except Exception as e:
             raise self._normalize_error(e) from e
+
+    def stream_complete(
+        self,
+        messages: list[Message],
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        tools: list[dict] | None = None,
+        on_delta: "Callable[[str], None] | None" = None,
+        should_stop: "Callable[[], bool] | None" = None,
+    ) -> LLMResult:
+        """Real token-level streaming, including tool-call support — OpenAI
+        sends tool calls as index-keyed partial deltas across many chunks
+        (id/name/arguments each arrive fragmented), so this accumulates them
+        by index before turning them into the same `ToolCall` shape
+        `complete()` returns. `stream_options={"include_usage": True}` asks
+        for a final usage-only chunk so cost/token accounting stays accurate
+        even though we never call the non-streaming endpoint."""
+        if should_stop and should_stop():
+            raise InterruptedError("cancelled before request was sent")
+
+        start = time.time()
+        stream_ctx = None
+        try:
+            kwargs = dict(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+            if tools:
+                kwargs["tools"] = tools
+            stream_ctx = self._client.chat.completions.create(**kwargs)
+
+            text_parts: list[str] = []
+            # index -> {"id": str, "name": str, "arguments": str}
+            tool_call_deltas: dict[int, dict] = {}
+            usage = None
+            cancelled = False
+
+            for chunk in stream_ctx:
+                if should_stop and should_stop():
+                    cancelled = True
+                    break
+                if getattr(chunk, "usage", None):
+                    usage = chunk.usage
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta.content:
+                    text_parts.append(delta.content)
+                    if on_delta:
+                        on_delta(delta.content)
+                if delta.tool_calls:
+                    for tc_delta in delta.tool_calls:
+                        acc = tool_call_deltas.setdefault(
+                            tc_delta.index, {"id": None, "name": "", "arguments": ""}
+                        )
+                        if tc_delta.id:
+                            acc["id"] = tc_delta.id
+                        if tc_delta.function:
+                            if tc_delta.function.name:
+                                acc["name"] += tc_delta.function.name
+                            if tc_delta.function.arguments:
+                                acc["arguments"] += tc_delta.function.arguments
+        except Exception as e:
+            raise self._normalize_error(e) from e
+        finally:
+            close = getattr(stream_ctx, "close", None)
+            if callable(close):
+                close()
+
+        if cancelled:
+            raise InterruptedError("cancelled mid-stream")
+
+        duration_ms = int((time.time() - start) * 1000)
+        tokens_in = usage.prompt_tokens if usage else 0
+        tokens_out = usage.completion_tokens if usage else 0
+
+        tool_calls = None
+        if tool_call_deltas:
+            tool_calls = [
+                ToolCall(id=v["id"], function={"name": v["name"], "arguments": v["arguments"]})
+                for _, v in sorted(tool_call_deltas.items())
+            ]
+
+        return LLMResult(
+            text="".join(text_parts),
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cost_usd=self._estimate_cost(model, tokens_in, tokens_out),
+            duration_ms=duration_ms,
+            model=model,
+            provider="openai",
+            tool_calls=tool_calls,
+        )
 
     @staticmethod
     def _normalize_error(e: Exception) -> ProviderError:

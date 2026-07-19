@@ -51,7 +51,7 @@ def test_chat_stream_emits_events_then_final_and_persists_turns():
         mock_memory.get_recent.return_value = []
         instance = MockFlow.return_value
 
-        def _flow_ctor(on_event=None):
+        def _flow_ctor(on_event=None, should_stop=None):
             _flow_ctor.on_event = on_event
             return instance
         MockFlow.side_effect = _flow_ctor
@@ -77,6 +77,71 @@ def test_chat_stream_emits_events_then_final_and_persists_turns():
 
     mock_memory.append_message.assert_any_call("user", "hai")
     mock_memory.append_message.assert_any_call("assistant", "Hai Bos!")
+
+
+def test_chat_stream_first_event_is_ready_with_cancel_token():
+    session_cookie = _login()
+    fake_response = ExecuteResponse(status="chat", message="Hai Bos!", model="gpt-4o-mini")
+
+    with patch("src.api.routes.TaskExecutionFlowV2") as MockFlow, \
+         patch("src.api.routes.dashboard_memory") as mock_memory:
+        mock_memory.get_recent.return_value = []
+        MockFlow.return_value.run.return_value = fake_response
+
+        response = client.post(
+            "/api/chat/stream",
+            json={"prompt": "hai", "model": "gpt-4o-mini"},
+            cookies={"session_token": session_cookie},
+        )
+
+    events = _parse_sse(response.text)
+    assert events[0][0] == "ready"
+    assert "cancel_token" in events[0][1]
+    assert events[0][1]["cancel_token"]
+
+
+def test_chat_cancel_requires_auth():
+    # Fresh client — the shared `client` may already carry a session cookie
+    # from an earlier test's _login() call (TestClient persists cookies).
+    response = TestClient(app).post("/api/chat/cancel", json={"cancel_token": "x"})
+    assert response.status_code == 401
+
+
+def test_chat_cancel_requires_token_field():
+    session_cookie = _login()
+    response = client.post(
+        "/api/chat/cancel", json={}, cookies={"session_token": session_cookie}
+    )
+    assert response.status_code == 400
+
+
+def test_chat_cancel_unknown_token_is_not_found_not_an_error():
+    session_cookie = _login()
+    response = client.post(
+        "/api/chat/cancel",
+        json={"cancel_token": "does-not-exist"},
+        cookies={"session_token": session_cookie},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "not_found"
+
+
+def test_chat_cancel_known_token_marks_it_cancelled():
+    from src.ai.agentic import cancellation
+
+    session_cookie = _login()
+    token = cancellation.create_cancel_token()
+    try:
+        response = client.post(
+            "/api/chat/cancel",
+            json={"cancel_token": token},
+            cookies={"session_token": session_cookie},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "cancelled"
+        assert cancellation.is_cancelled(token) is True
+    finally:
+        cancellation.cleanup(token)
 
 
 def test_chat_stream_reports_error_event_on_exception():

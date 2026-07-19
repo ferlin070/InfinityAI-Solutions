@@ -52,6 +52,7 @@ class InfinityLLMAdapter(BaseLLM):
         max_tokens: int = 4096,
         on_result: ResultCallback | None = None,
         on_event: EventCallback | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__(model=model, temperature=temperature)
         self._provider = provider
@@ -60,6 +61,12 @@ class InfinityLLMAdapter(BaseLLM):
         self._max_tokens = max_tokens
         self._on_result = on_result
         self._on_event = on_event or (lambda event_type, payload: None)
+        # Checked before/during each LLM round-trip so a user-initiated Stop
+        # can interrupt a run between tool calls, and even mid-token-stream
+        # (see OpenAIProvider.stream_complete) — not just before the whole
+        # subtask starts. Cancellation raises InterruptedError, which the
+        # Worker (one level up) catches and turns into a "cancelled" result.
+        self._should_stop = should_stop
 
     def call(
         self,
@@ -92,15 +99,26 @@ class InfinityLLMAdapter(BaseLLM):
             if agent_tools:
                 tools, available_functions = self._build_tool_schema(agent_tools)
 
+        def _emit_delta(chunk: str) -> None:
+            # PLANNER calls only ever produce routing JSON, never user-facing
+            # prose — streaming its raw partial JSON into the chat timeline
+            # would just be noise, so it's the one agent_key excluded here.
+            if self._agent_key != "PLANNER":
+                self._on_event("token", {"agent": self._agent_key, "delta": chunk})
+
         # Tool loop: call provider, if tool_calls returned, execute functions and repeat
         current_tools = tools
         while True:
-            result = self._provider.complete(
+            if self._should_stop and self._should_stop():
+                raise InterruptedError(f"cancelled before LLM call for '{self._agent_key}'")
+            result = self._provider.stream_complete(
                 messages=normalized,
                 model=self.model,
                 temperature=self.temperature if self.temperature is not None else 0.7,
                 max_tokens=self._max_tokens,
                 tools=current_tools,
+                on_delta=_emit_delta,
+                should_stop=self._should_stop,
             )
 
             tool_calls = result.get("tool_calls")

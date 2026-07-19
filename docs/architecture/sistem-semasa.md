@@ -9,9 +9,16 @@ Sistem bekerja dengan prinsip "Manager-Worker". Seorang Manajer (Claudia) meneri
 
 ### Komponen Utama:
 *   **Backend**: FastAPI (Python)
-*   **AI Engine**: NVIDIA NIM API (Llama-3.1-70b / Kimi-k2.6)
-*   **Storage**: Google Drive via Google Apps Script (GAS)
-*   **Frontend**: HTML/CSS/JS vanila, satu halaman (`index.html`) — rekaan "dokumen pejabat", rujuk [design system](../frontend/dashboard-design.md)
+*   **AI Engine**: NVIDIA NIM API (Llama-3.1-70b / Kimi-k2.6) — **legacy**, lihat nota di bawah
+*   **Storage**: Google Drive via Google Apps Script (GAS) — legacy juga, sama status
+*   **Frontend**: React 19 + Vite + Tailwind (`frontend-react/src/`), termasuk Agent Workspace UI (streaming timeline agentic-v3). Build output disajikan oleh backend dari `frontend/src/` (gitignored, dijana semasa `npm run build` / Docker build — bukan hand-authored lagi). Rekaan "dokumen pejabat" HTML/CSS/JS vanila yang lama (rujuk [design system](../frontend/dashboard-design.md) untuk sejarah) telah digantikan sepenuhnya — dokumen design system tu sendiri belum dikemaskini untuk reka bentuk baru.
+
+> **Nota:** bahagian "Struktur Agen" dan "Alur Kerja" di bawah menerangkan
+> orkestrator V1 asal (NVIDIA NIM, JSON assignments daripada Claudia). Sejak
+> `docs/architecture/ai-execution-crewai.md` dan `docs/architecture/agentic-v3.md`,
+> orkestrasi sebenar guna CrewAI + OpenAI dengan Planner → Coordinator →
+> Worker (lihat dokumen tersebut). Bahagian di bawah dikekalkan sebagai
+> rujukan sejarah/fallback (`/api/execute` legacy) — bukan aliran utama lagi.
 
 ---
 
@@ -91,9 +98,9 @@ function doPost(e) {
 
 ## 6. Deployment (Docker & Hugging Face)
 
-Rujuk [Dockerfile](../../Dockerfile) di root repo (jangan duplikasi kandungannya di sini — fail tersebut adalah sumber rujukan tunggal). Ringkasnya: image `python:3.10-slim`, berjalan sebagai user bukan-root, dan dilancarkan dengan `uvicorn` di port `7860` (standard Hugging Face Spaces).
+Rujuk [Dockerfile](../../Dockerfile) di root repo (jangan duplikasi kandungannya di sini — fail tersebut adalah sumber rujukan tunggal). Ringkasnya: build multi-stage — Node builds `frontend-react/` dulu, kemudian image `python:3.10-slim` (jalan sebagai user bukan-root) sajikan hasil build tu sekali dengan API, dilancarkan dengan `uvicorn` di port `7860` (standard Hugging Face Spaces / fallback jika `$PORT` tak diset).
 
-**Auto-deploy:** setiap push ke branch `main` akan di-sync secara automatik (force push) ke Hugging Face Spaces melalui GitHub Actions ([sync_to_hf.yml](../../.github/workflows/sync_to_hf.yml)). Berhati-hati: commit ke `main` = deploy ke production.
+⚠️ **Auto-deploy ke Hugging Face Spaces telah dibuang** (`sync_to_hf.yml` dipadam pada commit `6c10c5a`) — push ke `main` **tidak lagi** deploy ke mana-mana secara automatik. Lihat [docs/deployment.md](../deployment.md) untuk cara deploy sebenar (Railway/Render).
 
 ---
 

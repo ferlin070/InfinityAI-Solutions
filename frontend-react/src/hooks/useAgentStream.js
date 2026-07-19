@@ -9,9 +9,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * the AgentTimeline) or a `subtaskUpdate` (mutates an existing step).
  *
  * Event types (see docs/architecture/agent-workspace-ui.md):
+ *   ready              → first event always; carries cancel_token for Stop
  *   status             → transient banner text
  *   plan               → opening timeline step
  *   subtask_start      → new subtask step
+ *   token              → streamed text delta for the currently-running subtask
  *   subtask_done       → complete the subtask step
  *   agent_start/done   → multi-agent sidebar row state
  *   tool_call (start/done) → tool execution card state
@@ -31,7 +33,10 @@ export function emptyState() {
     error: null,
     pendingApproval: null,         // { tool, arguments, ... } awaiting user
     elapsedMs: 0,
+    running: false,                // true from run() start until it settles
     finished: false,
+    cancelled: false,              // true if the user clicked Stop
+    cancelToken: null,             // from the `ready` event — POST to /api/chat/cancel
   };
 }
 
@@ -40,6 +45,7 @@ export function useAgentStream(streamFactory, { onDone, onError } = {}) {
   const stateRef = useRef(state);
   stateRef.current = state;
   const startedAtRef = useRef(null);
+  const abortRef = useRef(null);
 
   const appendStep = useCallback((step) => {
     setState((s) => ({ ...s, steps: [...s.steps, step] }));
@@ -64,8 +70,30 @@ export function useAgentStream(streamFactory, { onDone, onError } = {}) {
   const handleEvent = useCallback(
     (eventType, payload) => {
       switch (eventType) {
+        case 'ready':
+          setState((s) => ({ ...s, cancelToken: payload?.cancel_token || null }));
+          break;
+
         case 'status':
           setState((s) => ({ ...s, statusText: payload?.text || '' }));
+          break;
+
+        case 'token':
+          // Streamed text delta for whichever subtask is currently running.
+          // Matched by agent so interleaved subtasks (rare today — the
+          // Coordinator dispatches sequentially, but the plan can mark
+          // subtasks parallelizable) each grow their own liveText.
+          setState((s) => {
+            const next = s.steps.slice();
+            for (let i = next.length - 1; i >= 0; i--) {
+              if (next[i].kind === 'subtask' && next[i].status === 'running'
+                  && (!payload?.agent || next[i].agent === payload.agent)) {
+                next[i] = { ...next[i], liveText: (next[i].liveText || '') + (payload?.delta || '') };
+                break;
+              }
+            }
+            return { ...s, steps: next };
+          });
           break;
 
         case 'plan':
@@ -292,8 +320,10 @@ export function useAgentStream(streamFactory, { onDone, onError } = {}) {
 
   const run = useCallback(async (prompt, model) => {
     if (!streamFactory) return;
-    setState(emptyState());
+    setState({ ...emptyState(), running: true });
     startedAtRef.current = Date.now();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     let timer;
     const tick = () => {
@@ -304,19 +334,43 @@ export function useAgentStream(streamFactory, { onDone, onError } = {}) {
     timer = setInterval(tick, 500);
 
     try {
-      await streamFactory(prompt, model, handleEvent);
+      await streamFactory(prompt, model, handleEvent, { signal: controller.signal });
     } catch (e) {
-      setState((s) => ({ ...s, error: e?.message || String(e), finished: true }));
-      onError?.(e);
+      if (e?.name === 'AbortError') {
+        // User-initiated Stop, not a real failure — don't surface it as an
+        // error banner (the "Dihentikan" status text already says so).
+        setState((s) => ({ ...s, cancelled: true }));
+      } else {
+        setState((s) => ({ ...s, error: e?.message || String(e) }));
+        onError?.(e);
+      }
     } finally {
       clearInterval(timer);
-      setState((s) => ({ ...s, finished: true }));
+      abortRef.current = null;
+      setState((s) => ({ ...s, running: false, finished: true }));
       onDone?.(stateRef.current);
     }
   }, [streamFactory, handleEvent, onDone, onError]);
 
-  // Cleanup on unmount.
-  useEffect(() => () => clearInterval(stateRef.current?.__timer), []);
+  const cancel = useCallback(async () => {
+    abortRef.current?.abort();
+    const token = stateRef.current?.cancelToken;
+    if (token) {
+      try {
+        const { cancelChatStream } = await import('../api');
+        await cancelChatStream(token);
+      } catch (_) {
+        // Best-effort — the client-side abort above already stops the UI
+        // from processing further events regardless of whether this lands.
+      }
+    }
+  }, []);
 
-  return { state, run };
+  // Cleanup on unmount.
+  useEffect(() => () => {
+    clearInterval(stateRef.current?.__timer);
+    abortRef.current?.abort();
+  }, []);
+
+  return { state, run, cancel };
 }

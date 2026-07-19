@@ -11,6 +11,7 @@ from src.schemas.models import ExecuteResponse, ExecutionRequest, UserLogin
 from src.ai.flows.task_execution_flow import TaskExecutionFlow
 from src.ai.flows.task_execution_flow_v2 import TaskExecutionFlowV2
 from src.ai.agentic.approval import resolve_approval, get_pending
+from src.ai.agentic import cancellation
 from src.core.sessions import verify_session, create_session, destroy_session
 from src.services import dashboard_memory
 
@@ -171,28 +172,37 @@ def _flatten_execute_response(response: ExecuteResponse) -> str:
 
 
 @router.post("/api/chat/stream")
-async def chat_stream(data: ExecutionRequest, session_token: str | None = Cookie(None)):
+async def chat_stream(
+    data: ExecutionRequest, request: Request, session_token: str | None = Cookie(None)
+):
     """Chat with the AI team over a live SSE stream — uses the V2 flow
     (Planner → Coordinator → Worker) by default. Falls back to V1 if
     V2 encounters an unrecoverable error.
 
-    The V2 flow emits richer events: plan, subtask_start, subtask_done,
-    tool_call, observation, validation, reflection, approval_required,
-    and final — all consumed by the Agent Workspace UI.
+    The V2 flow emits richer events: ready, plan, subtask_start, subtask_done,
+    tool_call, token, observation, validation, reflection, approval_required,
+    and final — all consumed by the Agent Workspace UI. `ready` (first event,
+    always) carries `cancel_token` — POST it to /api/chat/cancel to interrupt
+    this run; a client disconnect (tab closed, fetch aborted) is also
+    detected below and treated the same way.
     """
     if not verify_session(session_token):
         raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
 
     event_q: "queue.Queue[tuple[str, dict] | None]" = queue.Queue()
+    cancel_token = cancellation.create_cancel_token()
+    should_stop = lambda: cancellation.is_cancelled(cancel_token)
 
     def emit(event_type: str, payload: dict) -> None:
         event_q.put((event_type, payload))
+
+    emit("ready", {"cancel_token": cancel_token})
 
     def run_flow() -> None:
         try:
             history = dashboard_memory.get_recent()
             conversation_id = f"stream_{id(data)}_{data.model}"
-            flow_v2 = TaskExecutionFlowV2(on_event=emit)
+            flow_v2 = TaskExecutionFlowV2(on_event=emit, should_stop=should_stop)
             response: ExecuteResponse = flow_v2.run(
                 prompt=data.prompt,
                 model=data.model,
@@ -208,20 +218,38 @@ async def chat_stream(data: ExecutionRequest, session_token: str | None = Cookie
             emit("error", {"message": "Ralat dalaman semasa memproses mesej."})
         finally:
             event_q.put(None)
+            cancellation.cleanup(cancel_token)
 
     threading.Thread(target=run_flow, daemon=True).start()
 
     async def event_gen():
         loop = asyncio.get_event_loop()
+        last_event_at = loop.time()
+        # Bounded by CHAT_STREAM_TIMEOUT_S itself so a small (e.g. test)
+        # timeout still fires at roughly that speed, not up to 1s late.
+        poll_interval = min(1.0, CHAT_STREAM_TIMEOUT_S)
         while True:
+            # A closed tab / aborted fetch never puts anything on the queue
+            # (the background thread doesn't know the client left) — without
+            # this check the thread runs to completion for nothing and the
+            # user's Stop click has nothing to abort client-side. Checked
+            # every poll_interval, not just once, so a Stop mid-run lands
+            # quickly instead of waiting for the next natural event.
+            if await request.is_disconnected():
+                cancellation.cancel(cancel_token)
+                logger.info("Chat stream: client disconnected — cancellation requested.")
+                break
             try:
                 item = await asyncio.wait_for(
-                    loop.run_in_executor(None, event_q.get), timeout=CHAT_STREAM_TIMEOUT_S
+                    loop.run_in_executor(None, event_q.get), timeout=poll_interval
                 )
             except asyncio.TimeoutError:
-                logger.error("Chat stream timed out waiting for a response.")
-                yield _sse_frame("error", {"message": "Masa tamat menunggu balasan. Sila cuba lagi."})
-                break
+                if loop.time() - last_event_at > CHAT_STREAM_TIMEOUT_S:
+                    logger.error("Chat stream timed out waiting for a response.")
+                    yield _sse_frame("error", {"message": "Masa tamat menunggu balasan. Sila cuba lagi."})
+                    break
+                continue
+            last_event_at = loop.time()
             if item is None:
                 break
             event_type, payload = item
@@ -236,6 +264,29 @@ async def chat_stream(data: ExecutionRequest, session_token: str | None = Cookie
             "Connection": "keep-alive",
         },
     )
+
+
+@router.post("/api/chat/cancel")
+async def chat_cancel(data: dict, session_token: str | None = Cookie(None)):
+    """Interrupt an in-flight /api/chat/stream run. The Agent Workspace UI
+    calls this when the user clicks Stop, using the `cancel_token` from
+    that stream's first (`ready`) event. Best-effort: the run stops at the
+    next checkpoint (before the next LLM call, or mid-token-stream for
+    OpenAI — see InfinityLLMAdapter/OpenAIProvider.stream_complete), not
+    necessarily instantly. An unknown/already-finished token isn't an
+    error — the run may have completed naturally before Stop was clicked.
+
+    Request body: {"cancel_token": "abc123"}
+    """
+    if not verify_session(session_token):
+        raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
+
+    cancel_token = data.get("cancel_token")
+    if not cancel_token:
+        raise HTTPException(status_code=400, detail="cancel_token is required")
+
+    found = cancellation.cancel(cancel_token)
+    return {"status": "cancelled" if found else "not_found", "cancel_token": cancel_token}
 
 
 @router.post("/api/chat/approval")

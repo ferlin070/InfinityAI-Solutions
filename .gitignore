@@ -9,3 +9,15 @@ daily_log.json
 daily_log.txt
 dashboard_chat.json
 *.log
+
+# frontend/src is Vite BUILD OUTPUT (frontend-react/vite.config.js outDir),
+# not hand-authored source — see frontend-react/src for the real source and
+# the root Dockerfile for how it's rebuilt at image-build time. Committing
+# minified bundles here made every rebuild an unreviewable diff.
+/frontend/src/
+node_modules/
+frontend-react/dist/
+
+# Debug output from gateway/src/routes.js screenshot route — a runtime
+# artifact of a local WhatsApp Web login, not something to commit.
+whatsapp_qr.png

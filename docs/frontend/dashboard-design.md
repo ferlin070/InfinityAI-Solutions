@@ -1,6 +1,16 @@
 # Design System Dashboard — "Dokumen Pejabat"
 
-Panduan rekaan untuk [index.html](../../index.html). Sesiapa yang menambah UI baru **mesti** ikut token dan peraturan di sini supaya dashboard kekal satu identiti.
+> **Sejarah, bukan reka bentuk semasa (ditanda 2026-07-19):** dashboard
+> React sekarang (`frontend-react/`) guna palet indigo/gold/graphite
+> (commit `e7cbce6`, "UI/UX upgrade"), bukan tema "dokumen pejabat" IBM Plex
+> yang diterangkan di bawah. `index.html` yang dirujuk di sini juga dah tak
+> wujud pada laluan tu — lihat `frontend-react/index.html` +
+> `frontend-react/src/App.jsx` untuk struktur sebenar. Dokumen ni dikekalkan
+> sebagai rekod sejarah reka bentuk asal; jangan ikut token di bawah untuk
+> kerja UI baru tanpa sahkan dulu dengan `frontend-react/src/index.css` /
+> `tailwind.config.js`.
+
+Panduan rekaan untuk `index.html` (versi lama, vanilla HTML/CSS/JS — lihat nota di atas). Sesiapa yang menambah UI baru **mesti** ikut token dan peraturan di sini supaya dashboard kekal satu identiti.
 
 ## Konsep
 

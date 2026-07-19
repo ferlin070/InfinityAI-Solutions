@@ -149,3 +149,46 @@ class TestCoordinatorApproval:
 
         assert len(results) == 1
         assert results[0].status == "success"
+
+
+class TestCoordinatorCancellation:
+    def test_stops_dispatching_once_cancelled(self):
+        """A Stop click sets should_stop() true. The Coordinator must not
+        dispatch any more subtasks after that point, even mid-plan —
+        already-produced results are kept, not discarded."""
+        subtasks = [
+            SubTask(id="sub_1", description="Step one", agent_key="MAYA",
+                    success_criteria="Do step one", depends_on=[]),
+            SubTask(id="sub_2", description="Step two", agent_key="HAKIM",
+                    success_criteria="Do step two", depends_on=["sub_1"]),
+            SubTask(id="sub_3", description="Step three", agent_key="ZARA",
+                    success_criteria="Do step three", depends_on=["sub_2"]),
+        ]
+        plan = _make_plan(subtasks)
+
+        # Cancel right after the first subtask completes.
+        stop_flag = {"stop": False}
+
+        def _fake_execute(st, model, org_id=None):
+            if st.id == "sub_1":
+                stop_flag["stop"] = True
+                return SubTaskResult(agent_key="MAYA", description="Step one", result="OK", status="success")
+            # sub_2/sub_3 must never be reached.
+            return SubTaskResult(agent_key=st.agent_key, description=st.description, result="", status="failed")
+
+        with patch("src.ai.agentic.coordinator.Worker.execute", side_effect=_fake_execute):
+            coord = Coordinator(plan=plan, should_stop=lambda: stop_flag["stop"])
+            results = coord.execute()
+
+        assert len(results) == 1
+        assert results[0].agent_key == "MAYA"
+        assert results[0].status == "success"
+
+    def test_never_dispatches_when_already_cancelled(self):
+        plan = _make_plan()
+        with patch("src.ai.agentic.coordinator.Worker.execute") as mock_worker:
+            coord = Coordinator(plan=plan, should_stop=lambda: True)
+            results = coord.execute()
+
+        mock_worker.assert_not_called()
+        assert results == []

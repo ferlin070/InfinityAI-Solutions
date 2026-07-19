@@ -39,10 +39,10 @@ export default function WorkOrder({ t }) {
     })();
   }, []);
 
-  async function handleStream(prompt, model, onEvent) {
+  async function handleStream(prompt, model, onEvent, opts) {
     // Lazy import so the bundle stays small if WorkOrder isn't used.
     const { streamChat } = await import('../api');
-    await streamChat(prompt, model, onEvent);
+    await streamChat(prompt, model, onEvent, opts);
   }
 
   async function handleClear() {
