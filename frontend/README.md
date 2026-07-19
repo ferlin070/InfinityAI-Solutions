@@ -1,120 +1,57 @@
-# Frontend — Dashboard
+# frontend/ — build output (not source)
 
-Vanilla HTML/CSS/JavaScript dashboard for the AI Command Center.
+> **Stale-doc notice (2026-07-19):** this file used to describe a
+> hand-authored vanilla HTML/CSS/JS dashboard living in `frontend/src/`
+> (`css/`, `js/` folders, IBM Plex "dokumen pejabat" theme). That was
+> replaced by a React + Vite dashboard back in commit `154ab70` ("migrate
+> and upgrade frontend to modern dark-themed React + Vite dashboard"), but
+> this file was never updated to match — if you were confused why
+> `frontend/src/css` and `frontend/src/js` don't exist, that's why.
 
-## Directory Structure
+## Where the real source is
 
-```
-frontend/src/
-├── index.html           # Main HTML (structure only)
-├── css/
-│   ├── tokens.css       # Design tokens (colors, fonts)
-│   ├── letterhead.css   # Letterhead & title styles
-│   ├── forms.css        # Form & textarea styles
-│   ├── table.css        # Table & log styles
-│   ├── layout.css       # Layout components (grid, roster)
-│   └── responsive.css   # Media queries & accessibility
-└── js/
-    ├── main.js          # Entry point & DOM initialization
-    ├── api.js           # API client (fetchExecute, fetchHistory)
-    ├── logger.js        # Terminal logging utilities
-    ├── history.js       # Activity log management
-    └── ui.js            # UI interaction & state management
-```
+**`../frontend-react/src/`** — a React 19 + Vite + Tailwind app. That's
+where you edit the dashboard, including the Agent Workspace UI
+(`frontend-react/src/components/workspace/`).
 
-## Design System
+## What `frontend/src/` actually is
 
-### Tokens (`css/tokens.css`)
+`frontend/src/` is **generated build output** — `frontend-react/vite.config.js`
+sets `build.outDir` to `../frontend/src` with `emptyOutDir: true`, so every
+`npm run build` in `frontend-react/` wipes and regenerates this directory
+(minified `assets/*.js`/`*.css`, a generated `index.html`, plus static
+files copied from `frontend-react/public/`).
 
-Color palette ("dokumen pejabat" / office document theme):
+It is **gitignored** (see root `.gitignore`) — it used to be committed
+directly, which turned every rebuild into an unreviewable diff of minified
+JS. Don't hand-edit anything under `frontend/src/`; it will be silently
+overwritten by the next build.
 
-```css
---paper:      #EFF2F0    /* Cool beige background */
---card:       #FBFCFB    /* Off-white cards */
---ink:        #1D2A32    /* Dark navy text */
---ink-soft:   #4E6069    /* Softer navy */
---ink-faint:  #7E929B    /* Light gray */
---rule:       #C7D2D2    /* Border lines */
---rule-soft:  #DFE6E5    /* Lighter borders */
---stamp:      #B23A2C    /* Red stamp (emphasis) */
---green:      #2E6B4E    /* Success green */
---green-soft: #E0EAE2    /* Light green background */
+The backend (`backend/src/core/config.py`'s `get_frontend_dir()`) serves
+whatever is on disk at `frontend/src/` directly — it doesn't know or care
+whether that came from a build or was hand-placed there.
+
+## Building it
+
+```bash
+cd frontend-react
+npm ci
+npm run build       # writes into ../frontend/src
 ```
 
-Fonts (IBM Plex family):
-- **IBM Plex Sans Condensed** — Headings, bold labels
-- **IBM Plex Sans** — Body text, regular content
-- **IBM Plex Mono** — Code, timestamps, data
+For local (non-Docker) backend dev, run the build once before
+`python -m src.main` — otherwise `frontend/src/` won't exist and the
+dashboard route will fail to find `index.html`. For `docker-compose`, the
+`backend`/`worker` services bind-mount `./frontend:/app/frontend` at
+*runtime*, so a host-side build (as above) is enough; no in-container step
+needed for local dev.
 
-### CSS Organization
+## Production builds
 
-- **tokens.css** — Load first; defines :root variables & resets
-- **letterhead.css** — Header, title, date/figures
-- **forms.css** — Input fields, buttons, form layout
-- **table.css** — Terminal log, activity table, chips
-- **layout.css** — Grid layouts, staff roster, footer
-- **responsive.css** — Media queries (960px, 440px breakpoints)
-
-### JavaScript Organization
-
-- **api.js** — Fetch wrappers (`fetchExecute`, `fetchHistory`)
-- **logger.js** — Terminal utilities (`addLog`, `escapeHtml`)
-- **history.js** — Activity log updates (`updateHistory`)
-- **ui.js** — Interaction handlers (`executeTask`)
-- **main.js** — DOM refs, initialization, event listeners
-
-## Running Locally
-
-No build step required. The frontend is served by the backend.
-
-1. Start backend: `cd backend && python -m src.main`
-2. Open browser: `http://localhost:7860`
-
-## Development
-
-### Modifying Styles
-
-Edit files in `css/` — no CSS preprocessor needed. Colors are in `tokens.css`.
-
-Example: To change the primary red stamp color, update `--stamp` in `tokens.css`:
-
-```css
---stamp: #ff6b6b; /* Your new color */
-```
-
-All components using `var(--stamp)` will automatically update.
-
-### Adding New JavaScript
-
-1. Create new file in `js/`
-2. Add `<script>` tag in `index.html` (before `main.js`)
-3. Reference utilities from other js files
-
-### Accessibility
-
-- All interactive elements are keyboard-accessible
-- `:focus-visible` outline on all focusable elements
-- `aria-live="polite"` on terminal log
-- Color contrast meets WCAG AA standards
-- Reduced motion support via `@media (prefers-reduced-motion: reduce)`
-
-## Browser Support
-
-- Modern browsers (Chrome, Firefox, Safari, Edge)
-- Requires ES6+ JavaScript support
-- No external dependencies (vanilla JS only)
-
-## Performance
-
-- Static HTML/CSS/JS — no build or optimization needed
-- Inline fonts via Google Fonts CDN
-- Responsive images handled at browser level
-- CSS grid for efficient layouts
-
-## Future Improvements
-
-- [x] Dark mode toggle
-- [x] Component library extraction
-- [x] Internationalization (i18n) for non-Malay languages
-- [x] Progressive Web App (PWA) support
-- [x] Offline capability
+The root `../Dockerfile` (used by Railway, and by Render if you point Root
+Directory at the repo root) builds `frontend-react/` in a Node stage and
+copies the output into the final image — see that file. `../backend/Dockerfile`
+does **not** build or bundle a frontend at all (its build context is
+`backend/` only, which can't reach `frontend-react/` outside it); it's an
+API-only image. See `../docs/deployment.md` for which Dockerfile to point
+which platform at.

@@ -4,6 +4,16 @@
 **Status:** ✅ **COMPLETE**  
 **Scope:** Monorepo transformation from monolithic to modular architecture
 
+> **Stale as of 2026-07-19:** this document describes `frontend/src/` as a
+> hand-authored vanilla HTML/CSS/JS tree (see "Frontend" table below). That
+> was true on July 16, but commit `154ab70` (also July 16, later the same
+> day) replaced it with a React + Vite dashboard (`frontend-react/`), whose
+> build output now *lands at* `frontend/src/` rather than being written by
+> hand. Treat the "Backend" section below as still accurate; treat the
+> "Frontend" section as a historical snapshot, not current structure — see
+> `frontend/README.md` and `frontend-react/README.md` for what's actually
+> there today.
+
 ---
 
 ## Executive Summary
