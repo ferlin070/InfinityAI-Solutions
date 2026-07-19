@@ -77,7 +77,13 @@ def process_inbound(job: dict) -> None:
 
     channel = WAWebJSProvider()
     if reply:
-        channel.send_text(channel_id, from_number, reply)
+        try:
+            channel.send_text(channel_id, from_number, reply)
+        except Exception as send_err:
+            logger.warning(
+                f"[process_inbound] Failed to send reply (non-fatal): {send_err}. "
+                f"Conversation {conversation['id']} still created."
+            )
 
     if flow._state.get("quotation_needed"):
         items = flow._state.get("quotation_items", [])
