@@ -1,6 +1,8 @@
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode");
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 const config = require("./config");
 
 const sessions = new Map(); // channelId -> { client, status, qr }
@@ -22,7 +24,8 @@ function createSession(channelId) {
         "--disable-gpu",
         "--no-first-run",
         "--no-zygote",
-        "--single-process"
+        "--single-process",
+        "--disable-sync"
       ],
     },
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -67,6 +70,13 @@ function createSession(channelId) {
     } catch (err) {
       console.error(`[${channelId}] Failed to forward inbound message:`, err.message);
     }
+  });
+
+  // Clear stale Chrome profile locks before initializing
+  const sessionDir = path.join(".wwebjs_auth", `session-${channelId}`);
+  ["SingletonLock", "SingletonSocket", "SingletonCookie"].forEach((file) => {
+    const fp = path.join(sessionDir, file);
+    try { fs.unlinkSync(fp); } catch (_) { /* ignore if missing */ }
   });
 
   client.initialize().catch((err) => {
