@@ -43,14 +43,21 @@ export default function AgentWorkspace({
 
   const { state, run } = useAgentStream(factory);
 
+  const [isRunning, setIsRunning] = useState(false);
+
   const handleSend = async () => {
     const p = prompt.trim();
-    if (!p || !state.finished === false) return;
+    if (!p || isRunning) return;
+    setIsRunning(true);
     setPrompt('');
     const newHistory = [...history, { role: 'user', content: p }];
     setHistory(newHistory);
     onHistoryChange?.(newHistory);
-    await run(p, 'gpt-4o-mini');
+    try {
+      await run(p, 'gpt-4o-mini');
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleClear = () => {
@@ -206,7 +213,7 @@ export default function AgentWorkspace({
             />
             <button
               type="submit"
-              disabled={!prompt.trim()}
+              disabled={!prompt.trim() || isRunning}
               className="text-xs px-3 py-2 rounded-md bg-primary text-primary-foreground disabled:opacity-50 flex items-center gap-1.5"
               data-testid="send-button"
             >

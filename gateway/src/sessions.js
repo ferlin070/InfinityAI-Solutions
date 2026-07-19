@@ -223,32 +223,6 @@ function createSession(channelId) {
   return entry;
 }
 
-// ─── Auto-restore sessions from saved volume data ──────────────────
-
-function autoRestoreSessions() {
-  const authDir = path.join(".wwebjs_auth");
-  try {
-    if (!fs.existsSync(authDir)) return;
-    const entries = fs.readdirSync(authDir);
-    entries.forEach((dirName) => {
-      // dirName format: "session-{channelId}"
-      if (dirName.startsWith("session-")) {
-        const channelId = dirName.replace("session-", "");
-        if (!sessions.has(channelId)) {
-          console.log(`[gateway] Auto-restoring session: ${channelId}`);
-          createSession(channelId);
-        }
-      }
-    });
-  } catch (err) {
-    console.error("[gateway] Auto-restore error:", err.message);
-  }
-}
-
-// Run auto-restore 5 seconds after startup to give the server time to bind
-setTimeout(autoRestoreSessions, 5000);
-
-
 function getSession(channelId) {
   return sessions.get(channelId) || null;
 }
