@@ -81,6 +81,9 @@ function createSession(channelId) {
         "--disable-extensions",
         "--disable-default-apps",
         "--mute-audio",
+        "--window-size=1280,1024",
+        "--disable-blink-features=AutomationControlled",
+        "--headless=new",
       ],
     },
   });
