@@ -74,7 +74,7 @@ function createSession(channelId) {
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
     puppeteer: {
       headless: true,
-      protocolTimeout: 120000,
+      protocolTimeout: 240000,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -85,6 +85,8 @@ function createSession(channelId) {
         "--disable-extensions",
         "--disable-default-apps",
         "--mute-audio",
+        "--blink-settings=imagesEnabled=false",
+        "--disable-remote-fonts",
       ],
     },
   });

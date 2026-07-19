@@ -20,7 +20,7 @@ class WAWebJSProvider(WhatsAppProvider):
             f"{GATEWAY_BASE}/sessions/{channel_id}/send",
             headers=self._headers(),
             json={"to": to, "body": body},
-            timeout=30,
+            timeout=10,
         )
         resp.raise_for_status()
 
