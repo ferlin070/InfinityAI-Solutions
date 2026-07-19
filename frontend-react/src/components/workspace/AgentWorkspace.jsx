@@ -26,6 +26,7 @@ export default function AgentWorkspace({
   context = {},
   initialHistory = [],
   onHistoryChange,
+  onClear,
 }) {
   const [prompt, setPrompt] = useState('');
   const [history, setHistory] = useState(initialHistory);
@@ -39,13 +40,38 @@ export default function AgentWorkspace({
     },
   })).current;
 
+  // Sync initialHistory once fetched (WorkOrder loads /api/chat/history
+  // asynchronously after first render).
+  useEffect(() => {
+    if (initialHistory && initialHistory.length > 0) {
+      setHistory(initialHistory);
+    }
+  }, [initialHistory]);
+
   // Use a wrapper so tests can pass a stub. Forwards `opts` (AbortController
   // signal) through so Stop can actually cancel the underlying fetch.
   const factory = api?.streamChat
     ? (prompt, model, onEvent, opts) => api.streamChat(prompt, model, onEvent, opts)
     : streamFactory;
 
-  const { state, run, cancel } = useAgentStream(factory);
+  const { state, run, cancel } = useAgentStream(factory, {
+    // A run's state.messages resets on the next run() call, so the final
+    // reply has to be folded into `history` here or it disappears from view
+    // as soon as the user sends a follow-up prompt.
+    onDone: (finalState) => {
+      const lastMsg = finalState.messages[finalState.messages.length - 1];
+      if (lastMsg) {
+        const replyText = lastMsg.message || (lastMsg.results && lastMsg.results.map(r => r.result).join('\n'));
+        if (replyText) {
+          setHistory((prev) => {
+            const next = [...prev, { id: `msg-${Date.now()}`, role: 'assistant', content: replyText }];
+            onHistoryChange?.(next);
+            return next;
+          });
+        }
+      }
+    }
+  });
 
   const handleSend = async () => {
     const p = prompt.trim();
@@ -55,7 +81,7 @@ export default function AgentWorkspace({
     if (!p || state.running) return;
     setPrompt('');
     lastPromptRef.current = p;
-    const newHistory = [...history, { role: 'user', content: p }];
+    const newHistory = [...history, { id: `user-msg-${Date.now()}`, role: 'user', content: p }];
     setHistory(newHistory);
     onHistoryChange?.(newHistory);
     await run(p, 'gpt-4o-mini');
@@ -75,7 +101,14 @@ export default function AgentWorkspace({
     await run(p, 'gpt-4o-mini');
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
+    if (onClear) {
+      try {
+        await onClear();
+      } catch (e) {
+        console.error('Clear failed:', e);
+      }
+    }
     setHistory([]);
     onHistoryChange?.([]);
   };
@@ -126,13 +159,30 @@ export default function AgentWorkspace({
         <main className="flex-1 flex flex-col min-w-0">
           {/* Scrollable timeline */}
           <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-            {state.steps.length === 0 && state.messages.length === 0 ? (
+            {history.length === 0 && state.steps.length === 0 && state.messages.length === 0 ? (
               <div className="text-[11px] text-text-muted text-center py-12">
                 Hantar arahan untuk mula. Claude akan rancang, ejen akan jalankan, anda nampak setiap langkah.
               </div>
             ) : (
               <>
+                {/* Past Chat History */}
+                {history.map((h, i) => (
+                  <article key={h.id || i} className="border border-border rounded-lg bg-surface-raised/40 p-3">
+                    <div className="flex items-center gap-1.5 text-[10px] text-text-muted mb-1">
+                      {h.role === 'assistant' ? (
+                        <Bot className="w-3 h-3 text-primary animate-pulse" />
+                      ) : (
+                        <User className="w-3 h-3 text-text-muted" />
+                      )}
+                      <span className="font-semibold">{h.role === 'assistant' ? 'Claudia' : 'Anda'}</span>
+                    </div>
+                    <p className="text-xs whitespace-pre-wrap leading-relaxed">{h.content}</p>
+                  </article>
+                ))}
+
+                {/* Active Agent Steps */}
                 <AgentTimeline steps={state.steps} onApprove={onApprove} onReject={onReject} />
+
                 {state.messages.map((m) => (
                   <article key={m.id} className="border border-border rounded-lg bg-surface-raised/40 p-3">
                     <div className="flex items-center gap-1.5 text-[10px] text-text-muted mb-1">

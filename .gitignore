@@ -17,3 +17,7 @@ dashboard_chat.json
 /frontend/src/
 node_modules/
 frontend-react/dist/
+
+# Debug output from gateway/src/routes.js screenshot route — a runtime
+# artifact of a local WhatsApp Web login, not something to commit.
+whatsapp_qr.png

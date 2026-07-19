@@ -1,5 +1,5 @@
 const express = require("express");
-const { createSession, getSession, destroySession } = require("./sessions");
+const { createSession, getSession, destroySession, withTimeout, resolveJid } = require("./sessions");
 const config = require("./config");
 
 const router = express.Router();
@@ -49,16 +49,55 @@ router.post("/sessions/:channelId/send", auth, async (req, res) => {
   }
 
   try {
-    if (fileUrl) {
-      const { MessageMedia } = require("whatsapp-web.js");
-      const media = await MessageMedia.fromUrl(fileUrl);
-      await session.client.sendMessage(to, media, { caption: caption || "" });
-    } else {
-      await session.client.sendMessage(to, body);
+    let targetJid = to;
+    if (targetJid.endsWith("@lid")) {
+      targetJid = await resolveJid(session.client, targetJid);
     }
-    res.json({ status: "sent" });
+
+    try {
+      if (fileUrl) {
+        const { MessageMedia } = require("whatsapp-web.js");
+        const media = await MessageMedia.fromUrl(fileUrl);
+        await session.client.sendMessage(targetJid, media, { caption: caption || "" });
+      } else {
+        await session.client.sendMessage(targetJid, body);
+      }
+      res.json({ status: "sent" });
+    } catch (sendErr) {
+      if (sendErr.message && sendErr.message.includes("No LID for user") && targetJid.endsWith("@c.us")) {
+        const userPart = targetJid.split("@")[0];
+        console.warn(`[${channelId}] Detected possible fake @c.us JID ${targetJid}. Retrying with resolved LID...`);
+        const lidJid = `${userPart}@lid`;
+        const resolved = await resolveJid(session.client, lidJid);
+        if (fileUrl) {
+          const { MessageMedia } = require("whatsapp-web.js");
+          const media = await MessageMedia.fromUrl(fileUrl);
+          await session.client.sendMessage(resolved, media, { caption: caption || "" });
+        } else {
+          await session.client.sendMessage(resolved, body);
+        }
+        res.json({ status: "sent" });
+      } else {
+        throw sendErr;
+      }
+    }
   } catch (err) {
     console.error(`[${channelId}] Send error:`, err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/sessions/:channelId/screenshot", auth, async (req, res) => {
+  const { channelId } = req.params;
+  const session = getSession(channelId);
+  if (!session || !session.client || !session.client.pupPage) {
+    return res.status(404).json({ error: "Session or page not found" });
+  }
+  try {
+    const screenshot = await session.client.pupPage.screenshot({ type: "png" });
+    res.setHeader("Content-Type", "image/png");
+    res.send(screenshot);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

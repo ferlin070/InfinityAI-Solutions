@@ -20,7 +20,7 @@ class WAWebJSProvider(WhatsAppProvider):
             f"{GATEWAY_BASE}/sessions/{channel_id}/send",
             headers=self._headers(),
             json={"to": to, "body": body},
-            timeout=30,
+            timeout=10,
         )
         resp.raise_for_status()
 
@@ -39,7 +39,7 @@ class WAWebJSProvider(WhatsAppProvider):
             channel_id=payload["channel_id"],
             from_number=payload["from"],
             body=payload.get("body", ""),
-            message_id=payload["message_id"],
+            message_id=payload.get("message_id") or payload.get("id", ""),
             timestamp=payload.get("timestamp", 0),
         )
 

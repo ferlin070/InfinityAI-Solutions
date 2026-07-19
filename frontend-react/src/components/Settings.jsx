@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Wifi, WifiOff, Plus, Trash2, HelpCircle, Smartphone, Terminal 
+  Wifi, WifiOff, Plus, Trash2, HelpCircle, Smartphone, Terminal, QrCode
 } from 'lucide-react';
 import { 
   fetchChannels, fetchCreateChannel, fetchChannelQR, fetchChannelStatus, fetchDeleteChannel 
@@ -19,8 +19,15 @@ export default function Settings({ t }) {
   const [qrStatus, setQrStatus] = useState('');
   const [connecting, setConnecting] = useState(false);
 
+  const qrIntervalRef = useRef(null);
+
   useEffect(() => {
     loadChannels();
+    return () => {
+      if (qrIntervalRef.current) {
+        clearInterval(qrIntervalRef.current);
+      }
+    };
   }, []);
 
   async function loadChannels() {
@@ -51,39 +58,27 @@ export default function Settings({ t }) {
   }
 
   async function pollQR(channelId) {
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > 12) {
-        clearInterval(interval);
-        setQrStatus('Masa tamat. Sila cuba lagi.');
-        return;
-      }
+    setQrCode(null);
+    setQrStatus('Sedang menjana kod QR...');
+    
+    if (qrIntervalRef.current) clearInterval(qrIntervalRef.current);
+    
+    qrIntervalRef.current = setInterval(async () => {
       try {
         const qrRes = await fetchChannelQR(channelId);
-        if (qrRes && qrRes.qr) {
-          setQrCode(qrRes.qr);
-          setQrStatus('Scan kod QR di bawah:');
-          clearInterval(interval);
-          pollStatus(channelId);
-        } else {
-          setQrStatus('Menunggu kod QR dijana...');
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }, 5000);
-  }
-
-  async function pollStatus(channelId) {
-    const interval = setInterval(async () => {
-      try {
-        const statRes = await fetchChannelStatus(channelId);
-        if (statRes && statRes.status === 'connected') {
-          clearInterval(interval);
-          setQrCode(null);
-          setQrStatus('WhatsApp berjaya disambungkan!');
-          loadChannels();
+        if (qrRes) {
+          if (qrRes.status === 'connected') {
+            clearInterval(qrIntervalRef.current);
+            qrIntervalRef.current = null;
+            setQrCode(null);
+            setQrStatus('WhatsApp berjaya disambungkan!');
+            loadChannels();
+          } else if (qrRes.qr) {
+            setQrCode(qrRes.qr);
+            setQrStatus('Scan kod QR di bawah (kod dikemaskini secara automatik):');
+          } else {
+            setQrStatus('Menunggu kod QR dijana...');
+          }
         }
       } catch (e) {
         console.error(e);
@@ -169,12 +164,22 @@ export default function Settings({ t }) {
                           </span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDisconnect(ch.id)}
-                        className="text-text-muted hover:text-accent-danger p-2 rounded hover:bg-surface-raised transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        {ch.status === 'pending_qr' && (
+                          <button
+                            onClick={() => pollQR(ch.id)}
+                            className="bg-primary/10 hover:bg-primary/20 text-primary py-1 px-2.5 text-[10px] font-semibold flex items-center rounded transition-all"
+                          >
+                            <QrCode className="w-3.5 h-3.5 mr-1" /> Tunjukkan QR
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDisconnect(ch.id)}
+                          className="text-text-muted hover:text-accent-danger p-2 rounded hover:bg-surface-raised transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })

@@ -60,7 +60,8 @@ export default function WorkOrder({ t }) {
       api={{ streamChat: handleStream }}
       context={{ module: 'Arahan Kerja' }}
       initialHistory={messages}
-      onHistoryChange={() => { /* AgentWorkspace manages its own in-memory history */ }}
+      onHistoryChange={setMessages}
+      onClear={handleClear}
     />
   );
 }
