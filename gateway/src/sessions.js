@@ -16,6 +16,7 @@ function createSession(channelId) {
     authStrategy: new LocalAuth({ clientId: channelId }),
     puppeteer: {
       headless: true,
+      protocolTimeout: 120000,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/google-chrome",
       args: [
         "--no-sandbox",
@@ -25,10 +26,10 @@ function createSession(channelId) {
         "--no-first-run",
         "--no-zygote",
         "--single-process",
-        "--disable-sync"
+        "--disable-sync",
+        "--disable-blink-features=AutomationControlled"
       ],
     },
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   });
 
   const entry = { client, status: "pending_qr", qr: null };
