@@ -178,31 +178,42 @@ function createSession(channelId) {
 
   // Clear stale Chrome profile locks before initializing
   const sessionDir = path.join(".wwebjs_auth", `session-${channelId}`);
-  ["SingletonLock", "SingletonSocket", "SingletonCookie"].forEach((file) => {
-    const fp = path.join(sessionDir, file);
-    try { fs.unlinkSync(fp); } catch (_) { /* ignore if missing */ }
-  });
+  function cleanLocks() {
+    ["SingletonLock", "SingletonSocket", "SingletonCookie"].forEach((file) => {
+      const fp = path.join(sessionDir, file);
+      try { fs.unlinkSync(fp); } catch (_) {}
+    });
+  }
+  cleanLocks();
 
   let retries = 0;
   const MAX_RETRIES = 2;
 
   function doInit() {
     console.log(`[${channelId}] Initializing (attempt ${retries + 1})...`);
-    client.initialize().catch((err) => {
+    client.initialize().catch(async (err) => {
       console.error(`[${channelId}] Initialization error (attempt ${retries + 1}):`, err.message);
-      // If the error is "Execution context destroyed", it means we got past QR scan
-      // but the inject() crashed. Re-initialize to recover.
-      if (
-        retries < MAX_RETRIES &&
-        (err.message.includes("Execution context") ||
-         err.message.includes("Target closed") ||
-         err.message.includes("Session closed"))
-      ) {
+
+      const isRecoverable =
+        err.message.includes("Execution context") ||
+        err.message.includes("Target closed") ||
+        err.message.includes("Session closed") ||
+        err.message.includes("browser is already running");
+
+      if (retries < MAX_RETRIES && isRecoverable) {
         retries++;
-        console.log(`[${channelId}] Retrying initialization in 3s...`);
-        setTimeout(() => doInit(), 3000);
+        console.log(`[${channelId}] Destroying browser and retrying in 5s...`);
+
+        // Kill old browser instance first
+        try { await client.destroy(); } catch (_) {}
+        cleanLocks();
+
+        // Remove from sessions Map, then create a completely fresh session
+        sessions.delete(channelId);
+        setTimeout(() => createSession(channelId), 5000);
       } else {
         entry.status = "disconnected";
+        console.error(`[${channelId}] Max retries reached — marking disconnected.`);
       }
     });
   }
@@ -211,6 +222,31 @@ function createSession(channelId) {
 
   return entry;
 }
+
+// ─── Auto-restore sessions from saved volume data ──────────────────
+
+function autoRestoreSessions() {
+  const authDir = path.join(".wwebjs_auth");
+  try {
+    if (!fs.existsSync(authDir)) return;
+    const entries = fs.readdirSync(authDir);
+    entries.forEach((dirName) => {
+      // dirName format: "session-{channelId}"
+      if (dirName.startsWith("session-")) {
+        const channelId = dirName.replace("session-", "");
+        if (!sessions.has(channelId)) {
+          console.log(`[gateway] Auto-restoring session: ${channelId}`);
+          createSession(channelId);
+        }
+      }
+    });
+  } catch (err) {
+    console.error("[gateway] Auto-restore error:", err.message);
+  }
+}
+
+// Run auto-restore 5 seconds after startup to give the server time to bind
+setTimeout(autoRestoreSessions, 5000);
 
 
 function getSession(channelId) {
