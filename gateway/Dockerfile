@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# puppeteer@^18.x is bundled by whatsapp-web.js and will download its own Chromium
+# whatsapp-web.js@1.34.7 bundles puppeteer@24.38.0 which downloads its own Chromium
 
 WORKDIR /app
 COPY gateway/package.json .
