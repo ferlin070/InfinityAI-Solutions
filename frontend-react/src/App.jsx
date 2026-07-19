@@ -40,7 +40,7 @@ export default function App() {
     setCheckingAuth(true);
     try {
       const data = await checkMe();
-      if (data && data.authenticated) {
+      if (data && (data.authenticated || data.status === 'success')) {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
