@@ -39,7 +39,7 @@ class WAWebJSProvider(WhatsAppProvider):
             channel_id=payload["channel_id"],
             from_number=payload["from"],
             body=payload.get("body", ""),
-            message_id=payload["message_id"],
+            message_id=payload.get("message_id") or payload.get("id", ""),
             timestamp=payload.get("timestamp", 0),
         )
 

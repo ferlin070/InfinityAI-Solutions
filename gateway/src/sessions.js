@@ -56,7 +56,7 @@ function createSession(channelId) {
           channel_id: channelId,
           from: msg.from,
           body: msg.body,
-          message_id: msg.id._serialized,
+          message_id: msg.id._serialized || msg.id,
           timestamp: msg.timestamp,
         },
         {
