@@ -105,16 +105,33 @@ function createSession(channelId) {
   sessions.set(channelId, entry);
 
   client.on("qr", async (qrData) => {
+    console.log(`[${channelId}] QR generated`);
     entry.qr = await qrcode.toDataURL(qrData);
     entry.status = "pending_qr";
   });
 
+  client.on("authenticated", () => {
+    console.log(`[${channelId}] Authenticated — loading WhatsApp Web...`);
+    entry.status = "authenticated";
+  });
+
+  client.on("loading_screen", (percent, message) => {
+    console.log(`[${channelId}] Loading: ${percent}% — ${message}`);
+  });
+
   client.on("ready", () => {
+    console.log(`[${channelId}] READY — session connected!`);
     entry.status = "connected";
     entry.qr = null;
   });
 
-  client.on("disconnected", () => {
+  client.on("auth_failure", (msg) => {
+    console.error(`[${channelId}] Auth failure: ${msg}`);
+    entry.status = "disconnected";
+  });
+
+  client.on("disconnected", (reason) => {
+    console.log(`[${channelId}] Disconnected: ${reason}`);
     entry.status = "disconnected";
   });
 
@@ -135,6 +152,7 @@ function createSession(channelId) {
       }
 
       const fromJid = await resolveJid(client, msg.from);
+      console.log(`[${channelId}] Inbound message from ${fromJid}: ${body.substring(0, 50)}`);
 
       await axios.post(
         config.fastapiWebhookUrl,
@@ -165,13 +183,35 @@ function createSession(channelId) {
     try { fs.unlinkSync(fp); } catch (_) { /* ignore if missing */ }
   });
 
-  client.initialize().catch((err) => {
-    console.error(`[${channelId}] Initialization error:`, err.message);
-    entry.status = "disconnected";
-  });
+  let retries = 0;
+  const MAX_RETRIES = 2;
+
+  function doInit() {
+    console.log(`[${channelId}] Initializing (attempt ${retries + 1})...`);
+    client.initialize().catch((err) => {
+      console.error(`[${channelId}] Initialization error (attempt ${retries + 1}):`, err.message);
+      // If the error is "Execution context destroyed", it means we got past QR scan
+      // but the inject() crashed. Re-initialize to recover.
+      if (
+        retries < MAX_RETRIES &&
+        (err.message.includes("Execution context") ||
+         err.message.includes("Target closed") ||
+         err.message.includes("Session closed"))
+      ) {
+        retries++;
+        console.log(`[${channelId}] Retrying initialization in 3s...`);
+        setTimeout(() => doInit(), 3000);
+      } else {
+        entry.status = "disconnected";
+      }
+    });
+  }
+
+  doInit();
 
   return entry;
 }
+
 
 function getSession(channelId) {
   return sessions.get(channelId) || null;
