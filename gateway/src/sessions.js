@@ -68,8 +68,8 @@ function createSession(channelId) {
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: channelId }),
     webVersionCache: {
-      type: "remote",
-      remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html",
+      type: "local",
+      path: "/app/.wwebjs_cache",
     },
     userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
     puppeteer: {
