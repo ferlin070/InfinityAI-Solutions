@@ -73,6 +73,7 @@ function PlanStep({ step }) {
 
 function SubTaskStep({ step, children }) {
   const a = step.agent || step.subtitle || '?';
+  const isRunning = step.status === 'running';
   return (
     <div className="border border-border rounded-lg bg-surface-raised/40">
       <StepHeader
@@ -80,9 +81,17 @@ function SubTaskStep({ step, children }) {
         color={STEP_STATUS_STYLE[step.status]?.color || 'text-text-muted'}
         label={step.status}
         title={`${a}: ${step.title || ''}`}
-        subtitle={step.resultText ? step.resultText.slice(0, 200) : ''}
+        subtitle={!isRunning && step.resultText ? step.resultText.slice(0, 200) : ''}
         durationMs={step.finishedAt && step.startedAt ? step.finishedAt - step.startedAt : null}
       />
+      {isRunning && step.liveText && (
+        <div className="px-3 pb-2 pl-9">
+          <p className="text-[11px] whitespace-pre-wrap font-mono leading-relaxed text-text-muted">
+            {step.liveText}
+            <span className="inline-block w-1.5 h-3 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+          </p>
+        </div>
+      )}
       {step.artifacts && step.artifacts.length > 0 && (
         <div className="px-3 pb-2 pl-9 flex flex-wrap gap-1.5">
           {step.artifacts.map((a, i) => (

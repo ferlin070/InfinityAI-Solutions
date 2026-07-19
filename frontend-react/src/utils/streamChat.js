@@ -4,7 +4,7 @@
 // so the Agent Workspace can render the full timeline.
 
 export function streamChatFactory({ url, sessionToken, getSessionToken }) {
-  return async function streamChat(prompt, model, onEvent) {
+  return async function streamChat(prompt, model, onEvent, { signal } = {}) {
     let token = sessionToken;
     if (!token && typeof getSessionToken === 'function') {
       token = getSessionToken();
@@ -17,6 +17,7 @@ export function streamChatFactory({ url, sessionToken, getSessionToken }) {
       headers,
       credentials: 'include',
       body: JSON.stringify({ prompt, model: model || 'gpt-4o-mini' }),
+      signal,
     });
     if (!res.ok || !res.body) {
       throw new Error(`Stream failed: ${res.status} ${res.statusText}`);

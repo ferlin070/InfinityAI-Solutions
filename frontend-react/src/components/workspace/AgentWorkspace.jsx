@@ -29,6 +29,7 @@ export default function AgentWorkspace({
 }) {
   const [prompt, setPrompt] = useState('');
   const [history, setHistory] = useState(initialHistory);
+  const lastPromptRef = useRef('');
   const streamFactory = useRef(streamChatFactory({
     url: DEFAULT_STREAM_URL,
     getSessionToken: () => {
@@ -38,18 +39,39 @@ export default function AgentWorkspace({
     },
   })).current;
 
-  // Use a wrapper so tests can pass a stub.
-  const factory = api?.streamChat ? (prompt, model, onEvent) => api.streamChat(prompt, model, onEvent) : streamFactory;
+  // Use a wrapper so tests can pass a stub. Forwards `opts` (AbortController
+  // signal) through so Stop can actually cancel the underlying fetch.
+  const factory = api?.streamChat
+    ? (prompt, model, onEvent, opts) => api.streamChat(prompt, model, onEvent, opts)
+    : streamFactory;
 
-  const { state, run } = useAgentStream(factory);
+  const { state, run, cancel } = useAgentStream(factory);
 
   const handleSend = async () => {
     const p = prompt.trim();
-    if (!p || !state.finished === false) return;
+    // `state.running` (not the old, always-false-in-practice `!state.finished
+    // === false` check) is what actually stops a double-send while a
+    // previous run is still streaming.
+    if (!p || state.running) return;
     setPrompt('');
+    lastPromptRef.current = p;
     const newHistory = [...history, { role: 'user', content: p }];
     setHistory(newHistory);
     onHistoryChange?.(newHistory);
+    await run(p, 'gpt-4o-mini');
+  };
+
+  const handleStop = () => {
+    cancel();
+  };
+
+  const handleRetry = async () => {
+    // "Cuba semula" must resend the prompt that actually failed — `prompt`
+    // itself is already '' by the time an error can show (handleSend clears
+    // it before awaiting run()), so retrying needs the value handleSend
+    // squirreled away, not the (now empty) input state.
+    const p = lastPromptRef.current;
+    if (!p || state.running) return;
     await run(p, 'gpt-4o-mini');
   };
 
@@ -90,10 +112,12 @@ export default function AgentWorkspace({
   };
 
   const elapsed = formatElapsed(state.elapsedMs);
-  const statusText = state.statusText || (state.finished ? 'Selesai' : 'Menunggu arahan...');
+  const statusText = state.cancelled
+    ? 'Dihentikan'
+    : state.statusText || (state.finished ? 'Selesai' : 'Menunggu arahan...');
 
   return (
-    <div className="flex flex-col h-[78vh] bg-surface rounded-xl border border-border overflow-hidden" data-testid="agent-workspace">
+    <div className="flex flex-col flex-1 min-h-0 bg-surface rounded-xl border border-border overflow-hidden" data-testid="agent-workspace">
       <WorkspaceHeader context={context} />
 
       <div className="flex flex-1 min-h-0">
@@ -154,9 +178,10 @@ export default function AgentWorkspace({
                 <div className="text-[11px] text-text-muted mt-1">{state.error}</div>
                 <button
                   type="button"
-                  onClick={handleSend}
-                  className="mt-2 text-[11px] px-2 py-1 rounded-md bg-accent-warning text-white"
+                  onClick={handleRetry}
+                  className="mt-2 text-[11px] px-2 py-1 rounded-md bg-accent-warning text-white flex items-center gap-1.5"
                 >
+                  <RefreshCw className="w-3 h-3" />
                   Cuba semula
                 </button>
               </div>
@@ -166,7 +191,13 @@ export default function AgentWorkspace({
           {/* Status bar */}
           <div className="border-t border-border bg-surface-raised/40 px-3 py-1.5 flex items-center gap-2 text-[10px] text-text-muted">
             <span className="flex items-center gap-1">
-              {state.finished ? <Zap className="w-3 h-3 text-accent-success" /> : <Loader2 className="w-3 h-3 animate-spin text-accent-warning" />}
+              {state.running ? (
+                <Loader2 className="w-3 h-3 animate-spin text-accent-warning" />
+              ) : state.finished ? (
+                <Zap className={`w-3 h-3 ${state.cancelled ? 'text-text-faint' : 'text-accent-success'}`} />
+              ) : (
+                <Clock className="w-3 h-3 text-text-faint" />
+              )}
               {statusText}
             </span>
             <span className="text-text-faint">·</span>
@@ -199,20 +230,33 @@ export default function AgentWorkspace({
                   handleSend();
                 }
               }}
-              placeholder="Hantar arahan kepada Claudia..."
+              placeholder={state.running ? 'Claudia sedang jalankan arahan...' : 'Hantar arahan kepada Claudia...'}
               rows={2}
-              className="flex-1 resize-none text-xs px-3 py-2 rounded-md bg-surface border border-border focus:outline-none focus:border-primary"
+              disabled={state.running}
+              className="flex-1 resize-none text-xs px-3 py-2 rounded-md bg-surface border border-border focus:outline-none focus:border-primary disabled:opacity-60"
               data-testid="prompt-input"
             />
-            <button
-              type="submit"
-              disabled={!prompt.trim()}
-              className="text-xs px-3 py-2 rounded-md bg-primary text-primary-foreground disabled:opacity-50 flex items-center gap-1.5"
-              data-testid="send-button"
-            >
-              <Send className="w-3.5 h-3.5" />
-              Hantar
-            </button>
+            {state.running ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="text-xs px-3 py-2 rounded-md bg-accent-danger text-white flex items-center gap-1.5"
+                data-testid="stop-button"
+              >
+                <Square className="w-3.5 h-3.5" />
+                Henti
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!prompt.trim()}
+                className="text-xs px-3 py-2 rounded-md bg-primary text-primary-foreground disabled:opacity-50 flex items-center gap-1.5"
+                data-testid="send-button"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Hantar
+              </button>
+            )}
           </form>
         </main>
       </div>

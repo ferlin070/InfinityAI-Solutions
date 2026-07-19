@@ -79,45 +79,88 @@ export default function App() {
     return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
-  return (
-    <div className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6">
-      {/* Premium Header */}
-      <header className="glass-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 glow-primary">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2 text-primary font-semibold tracking-wide text-xs">
-            <Shield className="w-4 h-4" />
-            <span className="uppercase tracking-wider font-mono">{t('wordmark')}</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-text">{t('title')}</h1>
-          <p className="text-xs text-text-muted">{t('sub-title')}</p>
-        </div>
+  // Arahan Kerja (WorkOrder/AgentWorkspace) is the one screen meant to feel
+  // like a live agent session, not an office dashboard page — full
+  // viewport height, no page-level scroll, minimal chrome. Every other tab
+  // keeps the original padded/scrollable dashboard shell. See
+  // docs/architecture/agent-workspace-ui.md's stated goal: "makes the user
+  // feel like a supervisor of a team of AI employees, not a person texting
+  // a chatbot" — the boxed, letterhead-topped layout worked against that.
+  const isWorkspace = activeTab === 'workorder';
 
-        <div className="flex flex-col items-end gap-2 text-right">
-          <div className="flex items-center space-x-2">
-            {/* Lang toggle */}
-            <button 
+  return (
+    <div className={
+      isWorkspace
+        ? 'h-screen overflow-hidden flex flex-col'
+        : 'min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col space-y-6'
+    }>
+      {isWorkspace ? (
+        /* Compact bar: brand + current tab + essential controls only —
+           the full letterhead header would eat a third of the viewport
+           for information that isn't relevant while watching a live run. */
+        <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-border bg-surface-raised/60">
+          <div className="flex items-center gap-2 min-w-0 text-primary font-semibold text-xs">
+            <Shield className="w-4 h-4 flex-shrink-0" />
+            <span className="uppercase tracking-wider font-mono">{t('wordmark')}</span>
+            <span className="text-text-faint">/</span>
+            <span className="text-text-muted normal-case font-sans truncate">{t('tab-workorder')}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
               onClick={() => setLang(prev => prev === 'ms' ? 'en' : 'ms')}
-              className="flex items-center text-xs font-semibold text-text-muted hover:text-text border border-border px-3 py-1.5 rounded-lg transition-all hover:bg-surface-raised"
+              className="flex items-center text-xs font-semibold text-text-muted hover:text-text border border-border px-2.5 py-1 rounded-lg transition-all hover:bg-surface-raised"
             >
               <Globe className="w-3.5 h-3.5 mr-1" />
               {lang.toUpperCase()}
             </button>
-
-            {/* Logout button */}
-            <button 
+            <button
               onClick={handleLogout}
-              className="flex items-center text-xs font-semibold text-accent-danger hover:text-white hover:bg-accent-danger/20 bg-accent-danger/10 border border-accent-danger/20 px-3 py-1.5 rounded-lg transition-all"
+              className="flex items-center text-xs font-semibold text-accent-danger hover:text-white hover:bg-accent-danger/20 bg-accent-danger/10 border border-accent-danger/20 px-2.5 py-1 rounded-lg transition-all"
             >
               <LogOut className="w-3.5 h-3.5 mr-1" />
               {t('log-keluar')}
             </button>
           </div>
-          <span className="text-[10px] text-text-faint font-mono">{currentDate}</span>
         </div>
-      </header>
+      ) : (
+        /* Premium Header */
+        <header className="glass-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 glow-primary">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 text-primary font-semibold tracking-wide text-xs">
+              <Shield className="w-4 h-4" />
+              <span className="uppercase tracking-wider font-mono">{t('wordmark')}</span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-text">{t('title')}</h1>
+            <p className="text-xs text-text-muted">{t('sub-title')}</p>
+          </div>
+
+          <div className="flex flex-col items-end gap-2 text-right">
+            <div className="flex items-center space-x-2">
+              {/* Lang toggle */}
+              <button
+                onClick={() => setLang(prev => prev === 'ms' ? 'en' : 'ms')}
+                className="flex items-center text-xs font-semibold text-text-muted hover:text-text border border-border px-3 py-1.5 rounded-lg transition-all hover:bg-surface-raised"
+              >
+                <Globe className="w-3.5 h-3.5 mr-1" />
+                {lang.toUpperCase()}
+              </button>
+
+              {/* Logout button */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center text-xs font-semibold text-accent-danger hover:text-white hover:bg-accent-danger/20 bg-accent-danger/10 border border-accent-danger/20 px-3 py-1.5 rounded-lg transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5 mr-1" />
+                {t('log-keluar')}
+              </button>
+            </div>
+            <span className="text-[10px] text-text-faint font-mono">{currentDate}</span>
+          </div>
+        </header>
+      )}
 
       {/* Main Tabs Navigation */}
-      <nav className="flex space-x-1 overflow-x-auto border-b border-border pb-0 max-w-full relative">
+      <nav className={`flex-shrink-0 flex space-x-1 overflow-x-auto border-b border-border pb-0 max-w-full relative ${isWorkspace ? 'px-4' : ''}`}>
         <div className="flex space-x-1 min-w-0">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: Activity },
@@ -149,10 +192,10 @@ export default function App() {
       </nav>
 
       {/* Content Area */}
-      <main className="flex-1">
+      <main className={isWorkspace ? 'flex-1 min-h-0 flex flex-col px-4 py-3' : 'flex-1'}>
         {activeTab === 'dashboard' && <Dashboard t={t} lang={lang} />}
         {activeTab === 'workorder' && <WorkOrder t={t} />}
-        
+
         {/* WhatsApp Subtabs nested page */}
         {activeTab === 'whatsapp' && (
           <div className="space-y-6">
@@ -195,11 +238,14 @@ export default function App() {
         {activeTab === 'settings' && <Settings t={t} />}
       </main>
 
-      {/* Footer */}
-      <footer className="pt-6 border-t border-border text-center text-[10px] text-text-faint font-mono flex items-center justify-between">
-        <span>{t('footer-doc')}</span>
-        <span>{t('footer-power')}</span>
-      </footer>
+      {/* Footer — omitted in workspace focus mode; every pixel of vertical
+          space there belongs to the live run, not a fixed footer line. */}
+      {!isWorkspace && (
+        <footer className="pt-6 border-t border-border text-center text-[10px] text-text-faint font-mono flex items-center justify-between">
+          <span>{t('footer-doc')}</span>
+          <span>{t('footer-power')}</span>
+        </footer>
+      )}
     </div>
   );
 }

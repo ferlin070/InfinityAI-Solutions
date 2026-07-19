@@ -54,11 +54,12 @@ export async function fetchHistory() {
 // called for every "event: ...\ndata: ...\n\n" frame the server sends —
 // progress events (status/tool_call/agent_start/agent_done) while Claudia
 // and any specialists work, then a terminal "final" (or "error") event.
-export async function streamChat(prompt, modelName, onEvent) {
+export async function streamChat(prompt, modelName, onEvent, { signal } = {}) {
     const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model: modelName })
+        body: JSON.stringify({ prompt, model: modelName }),
+        signal,
     });
 
     if (response.status === 401) {
@@ -104,6 +105,14 @@ export async function streamChat(prompt, modelName, onEvent) {
             }
         }
     }
+}
+
+// Best-effort: called when the user clicks Stop. Aborting the fetch (see
+// streamChat's `signal`) already stops the client from processing further
+// events; this additionally tells the backend to stop doing the (possibly
+// still-billable) work — see /api/chat/cancel in routes.py.
+export async function cancelChatStream(cancelToken) {
+    return apiPost('/api/chat/cancel', { cancel_token: cancelToken });
 }
 
 export async function fetchChatHistory() {
