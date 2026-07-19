@@ -1,17 +1,27 @@
 FROM node:20-slim
 
+# Dependencies for Puppeteer's bundled Chromium
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
     ca-certificates \
-    && wget -q -O- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmour -o /usr/share/keyrings/google-chrome.gpg \
-    && sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable --no-install-recommends \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdrm2 \
+    libgbm1 \
+    libnss3 \
+    libnspr4 \
+    libu2f-udev \
+    libxcomposite1 \
+    libxdamage1 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+# puppeteer@^18.x is bundled by whatsapp-web.js and will download its own Chromium
 
 WORKDIR /app
 COPY gateway/package.json .
