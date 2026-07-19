@@ -41,5 +41,9 @@ COPY gateway/package.json .
 RUN npm install
 COPY gateway/src/ src/
 
+# Startup script: clean GPU/disk caches before launching node to avoid
+# "No space left on device" errors from stale Chromium cache files
+RUN printf '#!/bin/sh\nfind /app/.wwebjs_auth -name "GPUCache" -type d -exec rm -rf {} + 2>/dev/null || true\nfind /app/.wwebjs_auth -name "GPUPersistentCache" -type d -exec rm -rf {} + 2>/dev/null || true\nexec node src/index.js\n' > /app/start.sh && chmod +x /app/start.sh
+
 EXPOSE 3000
-CMD ["node", "src/index.js"]
+CMD ["/app/start.sh"]
