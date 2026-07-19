@@ -5,6 +5,23 @@ const fs = require("fs");
 const path = require("path");
 const config = require("./config");
 
+function withTimeout(promise, ms, defaultValue) {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve(defaultValue);
+    }, ms);
+    promise
+      .then((val) => {
+        clearTimeout(timeout);
+        resolve(val);
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        resolve(defaultValue);
+      });
+  });
+}
+
 const sessions = new Map(); // channelId -> { client, status, qr }
 
 function createSession(channelId) {
@@ -58,12 +75,38 @@ function createSession(channelId) {
 
   client.on("message", async (msg) => {
     try {
+      let body = msg.body;
+      if (msg.type === "ciphertext" || !body) {
+        // Wait 1.5 seconds for decryption
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        try {
+          const reloaded = await msg.reload();
+          if (reloaded && reloaded.body) {
+            body = reloaded.body;
+          }
+        } catch (reloadErr) {
+          console.error(`[${channelId}] Failed to reload message:`, reloadErr.message);
+        }
+      }
+
+      let fromJid = msg.from;
+      if (fromJid.endsWith("@lid")) {
+        try {
+          const contact = await withTimeout(msg.getContact(), 3000, null);
+          if (contact && contact.number) {
+            fromJid = `${contact.number}@c.us`;
+          }
+        } catch (contactErr) {
+          console.error(`[${channelId}] Failed to resolve LID contact:`, contactErr.message);
+        }
+      }
+
       await axios.post(
         config.fastapiWebhookUrl,
         {
           channel_id: channelId,
-          from: msg.from,
-          body: msg.body,
+          from: fromJid,
+          body: body,
           message_id: typeof msg.id === "object" ? (msg.id._serialized || msg.id.id) : msg.id,
           timestamp: msg.timestamp,
         },
@@ -111,4 +154,4 @@ function destroySession(channelId) {
   } catch (_) {}
 }
 
-module.exports = { createSession, getSession, destroySession };
+module.exports = { createSession, getSession, destroySession, withTimeout };

@@ -1,5 +1,5 @@
 const express = require("express");
-const { createSession, getSession, destroySession } = require("./sessions");
+const { createSession, getSession, destroySession, withTimeout } = require("./sessions");
 const config = require("./config");
 
 const router = express.Router();
@@ -49,12 +49,24 @@ router.post("/sessions/:channelId/send", auth, async (req, res) => {
   }
 
   try {
+    let targetJid = to;
+    if (targetJid.endsWith("@lid")) {
+      try {
+        const contact = await withTimeout(session.client.getContactById(targetJid), 3000, null);
+        if (contact && contact.number) {
+          targetJid = `${contact.number}@c.us`;
+        }
+      } catch (err) {
+        console.error(`[${channelId}] Failed to resolve JID for sending:`, err.message);
+      }
+    }
+
     if (fileUrl) {
       const { MessageMedia } = require("whatsapp-web.js");
       const media = await MessageMedia.fromUrl(fileUrl);
-      await session.client.sendMessage(to, media, { caption: caption || "" });
+      await session.client.sendMessage(targetJid, media, { caption: caption || "" });
     } else {
-      await session.client.sendMessage(to, body);
+      await session.client.sendMessage(targetJid, body);
     }
     res.json({ status: "sent" });
   } catch (err) {
