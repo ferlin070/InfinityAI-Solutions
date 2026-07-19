@@ -50,6 +50,16 @@ class ScriptedProvider:
     def stream(self, *args, **kwargs):
         yield ""
 
+    def stream_complete(self, messages, model, temperature=0.7, max_tokens=4096,
+                         tools=None, on_delta=None, should_stop=None):
+        # InfinityLLMAdapter.call() always goes through stream_complete now;
+        # this fake doesn't subclass LLMProvider so it doesn't inherit that
+        # default.
+        result = self.complete(messages, model, temperature, max_tokens, tools)
+        if on_delta and result["text"]:
+            on_delta(result["text"])
+        return result
+
 
 def test_user_asking_whatsapp_status_triggers_a_tool_call():
     """Reproduce the user-reported failure and verify the fix: a

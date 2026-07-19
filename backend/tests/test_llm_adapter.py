@@ -12,8 +12,14 @@ from src.ai.providers.base import LLMResult
 
 
 def _fake_provider(text="hasil"):
+    # A bare MagicMock() provider's `.stream_complete` has no default body,
+    # so tests must configure it directly (return_value/side_effect) — the
+    # adapter calls `stream_complete`, not `complete`, so mocking `complete`
+    # here would silently no-op and hang the tool-calling loop (an
+    # unconfigured `stream_complete()` returns a MagicMock, whose `.get()`
+    # and truthiness checks are always truthy, so `while True` never exits).
     provider = MagicMock()
-    provider.complete.return_value = LLMResult(
+    provider.stream_complete.return_value = LLMResult(
         text=text,
         tokens_in=10,
         tokens_out=5,
@@ -32,8 +38,8 @@ def test_call_with_string_wraps_as_user_message():
     response = adapter.call("kira bajet bulan ini")
 
     assert response == "hasil"
-    provider.complete.assert_called_once()
-    kwargs = provider.complete.call_args.kwargs
+    provider.stream_complete.assert_called_once()
+    kwargs = provider.stream_complete.call_args.kwargs
     assert kwargs["messages"] == [{"role": "user", "content": "kira bajet bulan ini"}]
     assert kwargs["model"] == "gpt-4o-mini"
 
@@ -48,7 +54,7 @@ def test_call_with_message_list_passes_through():
 
     adapter.call(messages)
 
-    assert provider.complete.call_args.kwargs["messages"] == messages
+    assert provider.stream_complete.call_args.kwargs["messages"] == messages
 
 
 def test_call_invokes_on_result_callback():
@@ -77,8 +83,89 @@ def test_call_with_tools_passes_tools_to_provider():
     tools = [{"type": "function", "function": {"name": "lookup_price", "parameters": {"type": "object"}}}]
     adapter.call("hi", tools=tools)
 
-    provider.complete.assert_called_once()
-    assert provider.complete.call_args.kwargs["tools"] == tools
+    provider.stream_complete.assert_called_once()
+    assert provider.stream_complete.call_args.kwargs["tools"] == tools
+
+
+def test_call_streams_text_deltas_as_token_events():
+    """The adapter must call stream_complete with an on_delta callback and
+    fire a `token` SSE event per chunk (this is what makes the Agent
+    Workspace UI render text as it arrives instead of all at once)."""
+    provider = MagicMock()
+
+    def fake_stream_complete(messages, model, temperature, max_tokens, tools, on_delta, should_stop):
+        if on_delta:
+            on_delta("hel")
+            on_delta("lo")
+        return LLMResult(
+            text="hello", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+        )
+
+    provider.stream_complete.side_effect = fake_stream_complete
+    events = []
+    adapter = InfinityLLMAdapter(
+        provider=provider, model="gpt-4o-mini", agent_key="ZARA",
+        on_event=lambda t, p: events.append((t, p)),
+    )
+
+    response = adapter.call("hi")
+
+    assert response == "hello"
+    assert events == [
+        ("token", {"agent": "ZARA", "delta": "hel"}),
+        ("token", {"agent": "ZARA", "delta": "lo"}),
+    ]
+
+
+def test_call_does_not_emit_token_events_for_planner():
+    """PLANNER only ever produces routing JSON, not user-facing prose —
+    streaming its raw partial JSON into the chat timeline would just be
+    noise, so it's excluded from `token` events."""
+    provider = MagicMock()
+
+    def fake_stream_complete(messages, model, temperature, max_tokens, tools, on_delta, should_stop):
+        if on_delta:
+            on_delta('{"intent"')
+        return LLMResult(
+            text='{"intent": "x"}', tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
+            model="gpt-4o-mini", provider="openai",
+        )
+
+    provider.stream_complete.side_effect = fake_stream_complete
+    events = []
+    adapter = InfinityLLMAdapter(
+        provider=provider, model="gpt-4o-mini", agent_key="PLANNER",
+        on_event=lambda t, p: events.append((t, p)),
+    )
+
+    adapter.call("plan this")
+
+    assert events == []
+
+
+def test_call_raises_interrupted_error_when_cancelled_before_call():
+    provider = _fake_provider()
+    adapter = InfinityLLMAdapter(
+        provider=provider, model="gpt-4o-mini", agent_key="ZARA",
+        should_stop=lambda: True,
+    )
+
+    with pytest.raises(InterruptedError):
+        adapter.call("hi")
+    provider.stream_complete.assert_not_called()
+
+
+def test_call_passes_should_stop_through_to_provider():
+    provider = _fake_provider()
+    should_stop = lambda: False
+    adapter = InfinityLLMAdapter(
+        provider=provider, model="gpt-4o-mini", agent_key="ZARA", should_stop=should_stop,
+    )
+
+    adapter.call("hi")
+
+    assert provider.stream_complete.call_args.kwargs["should_stop"] is should_stop
 
 
 def test_supports_function_calling_is_true():
@@ -104,14 +191,14 @@ def test_chain_runs_all_callbacks_even_if_one_fails():
         raise RuntimeError("boom")
 
     combined = chain(broken_callback, ok_callback)
-    combined("ZARA", "org-1", _fake_provider().complete.return_value)
+    combined("ZARA", "org-1", _fake_provider().stream_complete.return_value)
 
     assert calls == ["ok"]
 
 
 def test_on_event_fires_around_tool_call_execution():
     provider = MagicMock()
-    provider.complete.side_effect = [
+    provider.stream_complete.side_effect = [
         LLMResult(
             text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
             model="gpt-4o-mini", provider="openai",
@@ -153,7 +240,7 @@ def test_on_event_fires_around_tool_call_execution():
 
 def test_on_event_fires_done_even_when_tool_raises():
     provider = MagicMock()
-    provider.complete.side_effect = [
+    provider.stream_complete.side_effect = [
         LLMResult(
             text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
             model="gpt-4o-mini", provider="openai",
@@ -230,7 +317,7 @@ def test_call_auto_builds_tools_from_from_task_when_crewai_omits_them():
         return f"stub result for {prompt}"
 
     provider = MagicMock()
-    provider.complete.side_effect = [
+    provider.stream_complete.side_effect = [
         LLMResult(
             text="", tokens_in=10, tokens_out=5, cost_usd=0.001, duration_ms=100,
             model="gpt-4o-mini", provider="openai",
@@ -249,10 +336,10 @@ def test_call_auto_builds_tools_from_from_task_when_crewai_omits_them():
 
     assert response == "Ini banner anda!"
     # The auto-built tools schema must have reached the provider on the first call.
-    first_call_tools = provider.complete.call_args_list[0].kwargs["tools"]
+    first_call_tools = provider.stream_complete.call_args_list[0].kwargs["tools"]
     assert first_call_tools[0]["function"]["name"] == "Stub_Tool"
     # And the tool result must have been fed back as a tool message.
-    second_call_messages = provider.complete.call_args_list[1].kwargs["messages"]
+    second_call_messages = provider.stream_complete.call_args_list[1].kwargs["messages"]
     assert any(m.get("content") == "stub result for banner" for m in second_call_messages)
 
 
@@ -264,7 +351,7 @@ def test_call_does_not_auto_build_tools_when_explicitly_provided():
 
     adapter.call("hi", tools=[{"type": "function", "function": {"name": "explicit"}}], from_task=fake_task)
 
-    assert provider.complete.call_args.kwargs["tools"] == [
+    assert provider.stream_complete.call_args.kwargs["tools"] == [
         {"type": "function", "function": {"name": "explicit"}}
     ]
 

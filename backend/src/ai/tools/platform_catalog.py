@@ -30,17 +30,10 @@ from typing import Optional
 from crewai.tools import tool
 
 from src.core.config import (
-    ANTHROPIC_API_KEY,
-    AZURE_OPENAI_API_KEY,
     AZURE_OPENAI_BASE_URL,
-    GEMINI_API_KEY,
-    GOOGLE_API_KEY,
     LOG_FILE,
     MCP_SERVERS,
-    OLLAMA_API_KEY,
     OLLAMA_BASE_URL,
-    OPENAI_API_KEY,
-    OPENROUTER_API_KEY,
     logger,
 )
 from src.db.client import db_health
@@ -259,20 +252,27 @@ def _check_mcp_available() -> bool:
 
 
 def _provider_status() -> dict:
-    """Which AI providers are wired up. Always works — reads from env."""
+    """Which AI providers are wired up. Always works — reads from env.
+
+    Reads `os.getenv(...)` directly rather than the module-level constants
+    imported above: those are snapshotted once at import time, so a env var
+    set later (a test's `monkeypatch.setenv`, or any process that mutates
+    its own environment after startup) would silently not show up here —
+    this function's whole job is to answer "what's configured *right now*."
+    """
     return {
-        "openai": {"configured": bool(OPENAI_API_KEY), "required": True,
+        "openai": {"configured": bool(os.getenv("OPENAI_API_KEY")), "required": True,
                     "note": "Primary provider for MVP"},
-        "anthropic": {"configured": bool(ANTHROPIC_API_KEY), "required": False,
+        "anthropic": {"configured": bool(os.getenv("ANTHROPIC_API_KEY")), "required": False,
                       "note": "Claude — set ANTHROPIC_API_KEY to enable"},
-        "gemini": {"configured": bool(GEMINI_API_KEY or GOOGLE_API_KEY), "required": False,
+        "gemini": {"configured": bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")), "required": False,
                    "note": "Google Gemini — set GEMINI_API_KEY or GOOGLE_API_KEY to enable"},
-        "openrouter": {"configured": bool(OPENROUTER_API_KEY), "required": False,
+        "openrouter": {"configured": bool(os.getenv("OPENROUTER_API_KEY")), "required": False,
                        "note": "Multi-model proxy — set OPENROUTER_API_KEY to enable"},
-        "ollama": {"configured": bool(OLLAMA_API_KEY), "base_url": OLLAMA_BASE_URL,
+        "ollama": {"configured": bool(os.getenv("OLLAMA_API_KEY")), "base_url": OLLAMA_BASE_URL,
                    "required": False,
                    "note": f"Local models — set OLLAMA_BASE_URL to override {OLLAMA_BASE_URL}"},
-        "azure": {"configured": bool(AZURE_OPENAI_API_KEY), "base_url": AZURE_OPENAI_BASE_URL,
+        "azure": {"configured": bool(os.getenv("AZURE_OPENAI_API_KEY")), "base_url": AZURE_OPENAI_BASE_URL,
                   "required": False,
                   "note": "Azure OpenAI — set AZURE_OPENAI_API_KEY + AZURE_OPENAI_BASE_URL"},
     }

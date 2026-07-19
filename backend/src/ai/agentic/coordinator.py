@@ -22,7 +22,7 @@ Threading model:
 """
 
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 from src.ai.agentic.approval import create_approval, wait_for_approval
 from src.ai.agentic.plan import Plan, SubTask
@@ -42,12 +42,14 @@ class Coordinator:
         model: str = "gpt-4o-mini",
         org_id: Optional[str] = None,
         conversation_id: Optional[str] = None,
+        should_stop: Optional[Callable[[], bool]] = None,
     ):
         self.plan = plan
         self._on_event = on_event or (lambda t, p: None)
         self._model = model
         self._org_id = org_id
         self._conversation_id = conversation_id or "default"
+        self._should_stop = should_stop
         self._started_at = 0.0
         self._completed_ids: set[str] = set()
         self._subtask_results: list[SubTaskResult] = []
@@ -57,11 +59,16 @@ class Coordinator:
 
         Returns a list of per-subtask results in execution order.
         If a subtask fails or is skipped, the coordinator continues
-        with the next ready subtask."""
+        with the next ready subtask. Stops dispatching (without failing
+        already-completed results) as soon as a user Stop is detected."""
         self._started_at = time.time()
         self._emit_plan()
 
         while len(self._completed_ids) < len(self.plan.subtasks):
+            if self._should_stop and self._should_stop():
+                logger.info("Coordinator: stopping — cancellation requested by user.")
+                break
+
             ready = self.plan.ready_subtasks(self._completed_ids)
             if not ready:
                 logger.warning(
@@ -74,6 +81,8 @@ class Coordinator:
                 result = self._dispatch(st)
                 self._completed_ids.add(st.id)
                 self._subtask_results.append(result)
+                if self._should_stop and self._should_stop():
+                    break
 
         return self._subtask_results
 
@@ -112,7 +121,7 @@ class Coordinator:
                     status="skipped",
                 )
 
-        worker = Worker(on_event=self._on_event)
+        worker = Worker(on_event=self._on_event, should_stop=self._should_stop)
         result = worker.execute(subtask, model=self._model, org_id=self._org_id)
         return result
 

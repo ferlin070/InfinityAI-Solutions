@@ -13,7 +13,7 @@ were called, and what was returned.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Optional
 
 from crewai import Crew, Process, Task
 
@@ -31,24 +31,53 @@ class SubTaskResult:
     agent_key: str
     description: str
     result: str
-    status: str = "success"  # "success" | "failed" | "skipped"
+    status: str = "success"  # "success" | "failed" | "skipped" | "cancelled"
     artifacts: list[dict] = field(default_factory=list)
     speed: str = "0s"
     error: Optional[str] = None
     tool_call_count: int = 0
 
 
+def _is_cancellation(exc: BaseException) -> bool:
+    """CrewAI's own Agent executor wraps LLM-call exceptions in its own
+    error types (rather than propagating them as-is), so InterruptedError
+    (raised by the provider/adapter on user Stop) can arrive here wrapped.
+    Walk the exception chain — `raise X from e` preserves `__cause__`, and
+    a bare re-raise inside an except block sets `__context__` — so this
+    still recognizes a cancellation a few frames of CrewAI wrapping deep."""
+    seen: set[int] = set()
+    current: Optional[BaseException] = exc
+    while current is not None and id(current) not in seen:
+        if isinstance(current, InterruptedError):
+            return True
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return False
+
+
 class Worker:
     """Executes one SubTask using the CrewAI agent registered for
     `subtask.agent_key`. Not reusable — create a new Worker per subtask."""
 
-    def __init__(self, on_event: Optional[EventCallback] = None):
+    def __init__(
+        self,
+        on_event: Optional[EventCallback] = None,
+        should_stop: Optional[Callable[[], bool]] = None,
+    ):
         self._on_event = on_event or (lambda event_type, payload: None)
+        self._should_stop = should_stop
 
     def execute(self, subtask: SubTask, model: str, org_id: Optional[str] = None) -> SubTaskResult:
         from datetime import datetime, timezone
 
         agent_key = subtask.agent_key
+
+        if self._should_stop and self._should_stop():
+            return SubTaskResult(
+                agent_key=agent_key, description=subtask.description,
+                result="", status="cancelled",
+            )
+
         self._on_event("subtask_start", {
             "subtask_id": subtask.id,
             "agent_key": agent_key,
@@ -96,6 +125,7 @@ class Worker:
             org_id=config.org_id,
             on_result=chain(structured_log_callback, lambda k, o, r: captured.append(r)),
             on_event=self._on_event,
+            should_stop=self._should_stop,
         )
 
         agent = build_crewai_agent(config, llm=llm, artifact_collector=artifacts)
@@ -114,6 +144,16 @@ class Worker:
                 verbose=False,
             ).kickoff()
         except Exception as e:
+            if _is_cancellation(e):
+                logger.info(f"Worker: '{agent_key}' cancelled by user")
+                result = SubTaskResult(
+                    agent_key=agent_key, description=subtask.description,
+                    result="", status="cancelled",
+                )
+                self._on_event("subtask_done", {
+                    "subtask_id": subtask.id, "agent_key": agent_key, "status": "cancelled",
+                })
+                return result
             logger.error(f"Worker: CrewAI execution failed for '{agent_key}': {e}", exc_info=True)
             return SubTaskResult(
                 agent_key=agent_key,

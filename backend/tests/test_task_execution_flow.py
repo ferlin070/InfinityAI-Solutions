@@ -37,6 +37,17 @@ class ScriptedProvider:
             duration_ms=150, model=model, provider="openai",
         )
 
+    def stream_complete(self, messages, model, temperature=0.7, max_tokens=4096,
+                         tools=None, on_delta=None, should_stop=None):
+        # InfinityLLMAdapter.call() always goes through stream_complete now;
+        # this fake doesn't subclass LLMProvider so it doesn't inherit that
+        # default. Delegates to complete() — scripted responses arrive as a
+        # single chunk, which is fine for these end-to-end flow tests.
+        result = self.complete(messages, model, temperature, max_tokens, tools)
+        if on_delta and result["text"]:
+            on_delta(result["text"])
+        return result
+
 
 def _run_flow(provider, prompt="Kira bajet pemasaran bulan ini.", on_event=None, history=None):
     with patch("src.ai.agents.factory.resolve_provider", return_value=provider), \
@@ -275,6 +286,13 @@ def test_danish_actually_generates_an_image_end_to_end():
                 text="Ini banner untuk goreng pisang cheese anda!", tokens_in=10, tokens_out=5,
                 cost_usd=0.001, duration_ms=100, model=model, provider="openai",
             )
+
+        def stream_complete(self, messages, model, temperature=0.7, max_tokens=4096,
+                             tools=None, on_delta=None, should_stop=None):
+            result = self.complete(messages, model, temperature, max_tokens, tools)
+            if on_delta and result["text"]:
+                on_delta(result["text"])
+            return result
 
     fake_openai_client = MagicMock()
     fake_resp = MagicMock()

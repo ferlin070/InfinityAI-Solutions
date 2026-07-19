@@ -16,7 +16,7 @@ Fallback behaviour:
     of a raw exception.
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 from src.ai.agentic.approval import list_pending
 from src.ai.agentic.coordinator import Coordinator
@@ -33,8 +33,13 @@ class TaskExecutionFlowV2:
     the returned `ExecuteResponse`.
     """
 
-    def __init__(self, on_event: Optional[EventCallback] = None):
+    def __init__(
+        self,
+        on_event: Optional[EventCallback] = None,
+        should_stop: Optional[Callable[[], bool]] = None,
+    ):
         self._on_event = on_event or (lambda event_type, payload: None)
+        self._should_stop = should_stop
 
     def run(
         self,
@@ -63,6 +68,9 @@ class TaskExecutionFlowV2:
                 model=model,
             )
 
+        if self._should_stop and self._should_stop():
+            return ExecuteResponse(status="cancelled", message="Dihentikan oleh pengguna.", model=model)
+
         # 2. Execute
         coordinator = Coordinator(
             plan=plan,
@@ -70,12 +78,15 @@ class TaskExecutionFlowV2:
             model=model,
             org_id=org_id,
             conversation_id=conversation_id,
+            should_stop=self._should_stop,
         )
 
         results = coordinator.execute()
 
         # 3. Build response
         if not results:
+            if self._should_stop and self._should_stop():
+                return ExecuteResponse(status="cancelled", message="Dihentikan oleh pengguna.", model=model)
             return ExecuteResponse(
                 status="error",
                 message="Tiada subtask berjaya dilaksanakan.",
@@ -84,9 +95,12 @@ class TaskExecutionFlowV2:
 
         agent_results = []
         all_failed = True
+        any_cancelled = False
         for r in results:
             if r.status == "success":
                 all_failed = False
+            if r.status == "cancelled":
+                any_cancelled = True
             agent_results.append(AgentResult(
                 agent=r.agent_key,
                 task=r.description[:500],
@@ -94,6 +108,12 @@ class TaskExecutionFlowV2:
                 speed=r.speed,
                 artifacts=r.artifacts or [],
             ))
+
+        # A run stopped mid-flight (some subtasks done, the rest cancelled)
+        # still returns whatever was completed — better than throwing away
+        # real, already-paid-for work just because the tail was cancelled.
+        if all_failed and any_cancelled:
+            return ExecuteResponse(status="cancelled", message="Dihentikan oleh pengguna.", model=model)
 
         if all_failed:
             # Every subtask failed — return as chat with a summary

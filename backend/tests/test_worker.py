@@ -71,3 +71,34 @@ class TestWorker:
         )
         result = worker.execute(subtask, model="gpt-4o-mini")
         assert result.status == "failed"
+
+
+class TestWorkerCancellation:
+    def test_should_stop_true_before_start_returns_cancelled_without_events(self):
+        """If the run was already cancelled before this subtask even got
+        picked up, the Worker shouldn't start it (no subtask_start/done —
+        there's nothing to show in the timeline for work that never ran)."""
+        events = []
+        worker = Worker(on_event=lambda t, p: events.append((t, p)), should_stop=lambda: True)
+        subtask = SubTask(id="sub_1", description="Do something", agent_key="HAKIM", success_criteria="Done")
+
+        result = worker.execute(subtask, model="gpt-4o-mini")
+
+        assert result.status == "cancelled"
+        assert events == []
+
+    def test_is_cancellation_recognizes_wrapped_interrupted_error(self):
+        from src.ai.agentic.worker import _is_cancellation
+
+        try:
+            try:
+                raise InterruptedError("stopped mid-stream")
+            except InterruptedError as inner:
+                raise RuntimeError("CrewAI wrapped it") from inner
+        except RuntimeError as wrapped:
+            assert _is_cancellation(wrapped) is True
+
+    def test_is_cancellation_false_for_unrelated_error(self):
+        from src.ai.agentic.worker import _is_cancellation
+
+        assert _is_cancellation(RuntimeError("just a normal failure")) is False
