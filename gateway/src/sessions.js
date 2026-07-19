@@ -105,6 +105,10 @@ function destroySession(channelId) {
     entry.client.destroy().catch(() => {});
     sessions.delete(channelId);
   }
+  const sessionDir = path.join(".wwebjs_auth", `session-${channelId}`);
+  try {
+    fs.rmSync(sessionDir, { recursive: true, force: true });
+  } catch (_) {}
 }
 
 module.exports = { createSession, getSession, destroySession };
