@@ -82,12 +82,17 @@ function createSession(channelId) {
         "--disable-gpu",
         "--no-first-run",
         "--no-zygote",
+        "--single-process",
         "--disable-sync",
+        "--disable-dbus",
         "--disable-blink-features=AutomationControlled",
         "--disable-features=IsolateOrigins,site-per-process",
         "--disable-site-isolation-trials",
         "--disable-accelerated-2d-canvas",
-        "--js-flags=--max-old-space-size=256"
+        "--js-flags=--max-old-space-size=256",
+        "--disable-extensions",
+        "--disable-default-apps",
+        "--mute-audio",
       ],
     },
   });
