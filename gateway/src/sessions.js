@@ -24,6 +24,42 @@ function withTimeout(promise, ms, defaultValue) {
 
 const sessions = new Map(); // channelId -> { client, status, qr }
 
+async function resolveJid(client, jid) {
+  if (!jid || !jid.endsWith("@lid")) return jid;
+
+  const lidUser = jid.split("@")[0];
+
+  // 1. Try getContactLidAndPhone
+  try {
+    const results = await withTimeout(client.getContactLidAndPhone([jid]), 3000, null);
+    if (results && results.length > 0 && results[0].pn) {
+      let pn = results[0].pn;
+      const pnUser = pn.split("@")[0];
+      // Make sure the resolved phone number is not the LID itself
+      if (pnUser !== lidUser) {
+        if (!pn.endsWith("@c.us")) {
+          pn = `${pn}@c.us`;
+        }
+        return pn;
+      }
+    }
+  } catch (err) {
+    console.error(`Error resolving LID JID via getContactLidAndPhone for ${jid}:`, err.message);
+  }
+
+  // 2. Try getContact as fallback
+  try {
+    const contact = await withTimeout(client.getContactById(jid), 3000, null);
+    if (contact && contact.number && contact.number !== lidUser) {
+      return `${contact.number}@c.us`;
+    }
+  } catch (err) {
+    console.error(`Error resolving LID JID via getContact for ${jid}:`, err.message);
+  }
+
+  return jid; // Fallback to original @lid JID
+}
+
 function createSession(channelId) {
   if (sessions.has(channelId)) {
     return sessions.get(channelId);
@@ -89,17 +125,7 @@ function createSession(channelId) {
         }
       }
 
-      let fromJid = msg.from;
-      if (fromJid.endsWith("@lid")) {
-        try {
-          const contact = await withTimeout(msg.getContact(), 3000, null);
-          if (contact && contact.number) {
-            fromJid = `${contact.number}@c.us`;
-          }
-        } catch (contactErr) {
-          console.error(`[${channelId}] Failed to resolve LID contact:`, contactErr.message);
-        }
-      }
+      const fromJid = await resolveJid(client, msg.from);
 
       await axios.post(
         config.fastapiWebhookUrl,
@@ -154,4 +180,4 @@ function destroySession(channelId) {
   } catch (_) {}
 }
 
-module.exports = { createSession, getSession, destroySession, withTimeout };
+module.exports = { createSession, getSession, destroySession, withTimeout, resolveJid };
