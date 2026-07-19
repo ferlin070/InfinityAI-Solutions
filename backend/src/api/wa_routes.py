@@ -105,7 +105,20 @@ async def get_channel_qr(channel_id: str,
                          session_token: str | None = Cookie(None)):
     require_session(session_token)
     provider = WAWebJSProvider()
-    result = await asyncio.to_thread(provider.get_qr, channel_id)
+    try:
+        result = await asyncio.to_thread(provider.get_qr, channel_id)
+    except Exception:
+        # Session might not be running on gateway (e.g. gateway rebooted). Auto-start it.
+        try:
+            logger.info(f"Session {channel_id} not running on gateway. Auto-starting it...")
+            await asyncio.to_thread(provider.start_session, channel_id)
+            # Give it 2 seconds to initialize browser, then fetch QR
+            await asyncio.sleep(2)
+            result = await asyncio.to_thread(provider.get_qr, channel_id)
+        except Exception as e:
+            logger.error(f"Failed to auto-start session {channel_id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to initialize session on gateway.")
+
     # When gateway reports connected, sync the Supabase channel status
     if isinstance(result, dict) and result.get("status") == "connected":
         ChannelRepo().update_status(ORG_ID, channel_id, "connected")
