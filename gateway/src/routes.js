@@ -87,6 +87,21 @@ router.post("/sessions/:channelId/send", auth, async (req, res) => {
   }
 });
 
+router.get("/sessions/:channelId/screenshot", auth, async (req, res) => {
+  const { channelId } = req.params;
+  const session = getSession(channelId);
+  if (!session || !session.client || !session.client.pupPage) {
+    return res.status(404).json({ error: "Session or page not found" });
+  }
+  try {
+    const screenshot = await session.client.pupPage.screenshot({ type: "png" });
+    res.setHeader("Content-Type", "image/png");
+    res.send(screenshot);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete("/sessions/:channelId", auth, (req, res) => {
   const { channelId } = req.params;
   destroySession(channelId);
