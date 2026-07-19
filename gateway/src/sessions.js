@@ -81,8 +81,6 @@ function createSession(channelId) {
         "--disable-extensions",
         "--disable-default-apps",
         "--mute-audio",
-        "--blink-settings=imagesEnabled=false",
-        "--disable-remote-fonts",
       ],
     },
   });
